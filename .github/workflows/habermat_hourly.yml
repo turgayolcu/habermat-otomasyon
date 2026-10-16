@@ -74,7 +74,7 @@ jobs:
             output/featured_image.jpg
             output/reels_video.mp4
             output/latest_package.json
-          retention-days: 5
+          retention-days: 1
 
       - name: Paylaşılan Haber Geçmişini Kaydet (Tekrar Önleme)
         if: success() && github.event.inputs.dry_run != 'true'

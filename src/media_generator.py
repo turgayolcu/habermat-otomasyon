@@ -180,7 +180,7 @@ def generate_wp_featured_image(
     draw.text((55, height - 56), footer_text, font=font_sub, fill=COLOR_WHITE)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    img.save(output_path, format="JPEG", quality=93)
+    img.save(output_path, format="JPEG", quality=85, optimize=True)
     return output_path
 
 
@@ -541,7 +541,7 @@ async def _synthesize_segment_with_word_timings(
             communicate = edge_tts.Communicate(
                 text=phonetic_text,
                 voice=PRIMARY_TR_FEMALE_VOICE,
-                rate="-3%",
+                rate="+0%",
                 pitch="-1Hz",
                 boundary="WordBoundary",
             )
@@ -564,7 +564,7 @@ async def _synthesize_segment_with_word_timings(
                 raw_mp3 = out_mp3.with_suffix(".raw.mp3")
                 with open(raw_mp3, "wb") as f:
                     f.write(audio_bytes)
-                # Cümle sonuna doğal nefes duraksaması (0.35 sn) ekle ki cümleler birbirine binmesin
+                # İki cümle arasındaki gereksiz sessizliği kırp (bir cümle bitince diğeri hemen başlasın)
                 subprocess.run(
                     [
                         "ffmpeg",
@@ -572,7 +572,7 @@ async def _synthesize_segment_with_word_timings(
                         "-i",
                         str(raw_mp3),
                         "-af",
-                        "apad=pad_dur=0.35",
+                        "silenceremove=start_periods=1:start_silence=0.02:start_threshold=-45dB,areverse,silenceremove=start_periods=1:start_silence=0.06:start_threshold=-45dB,areverse",
                         "-ar",
                         "44100",
                         "-ac",

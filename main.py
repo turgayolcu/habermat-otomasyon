@@ -205,6 +205,10 @@ def main() -> None:
         wp_url=wp_post_url,
         ig_id=social_id,
     )
+    # Depolama alanı dolmaması için geçici slayt ve ses parçalarını temizle
+    if WORK_DIR.exists():
+        shutil.rmtree(WORK_DIR, ignore_errors=True)
+
     print("============================================================")
     print("[BAŞARILI] Saatlik Habermat.com haber ve video akışı tamamlandı!")
 
