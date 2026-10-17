@@ -123,6 +123,7 @@ def main() -> None:
     # 2. Güncel haberi çek
     news_item = fetch_fresh_news_for_category(category)
     print(f"[2/6] Bulunan Haber Konusu: {news_item['raw_title']}")
+    print(f"      -> Orijinal Kaynak Linki: {news_item.get('source_link', 'Rehber/Arşiv')}")
 
     # 3. Gemini AI ile WordPress SEO Makalesi + Reels Senaryosu üret
     if args.dry_run and not os.environ.get("GEMINI_API_KEY"):
@@ -160,7 +161,7 @@ def main() -> None:
         json.dump(package, f, ensure_ascii=False, indent=2)
 
     # 5. Gerçek Fotoğraflı Kapak Görseli ve Çoklu Slaytlı Reels Videosu Üretimi
-    print("[5/6] Gerçek fotoğraflı WordPress kapak görseli (1200x675) ve erkek spikerli Reels videosu (1080x1920) hazırlanıyor...")
+    print("[5/6] Gerçek fotoğraflı WordPress kapak görseli (1200x675) ve kadın spikerli Reels videosu (1080x1920) hazırlanıyor...")
     generate_wp_featured_image(package, category, featured_img_path, real_photos=real_photos)
     generate_reels_video(package, category, WORK_DIR, reels_mp4_path, real_photos=real_photos)
     print(f"      -> Kapak Görseli Hazır: {featured_img_path}")
@@ -198,12 +199,13 @@ def main() -> None:
         else:
             print("[UYARI] TikTok oturumu (python login_tiktok.py) veya Instagram şifresi henüz tanımlanmadı.")
 
-    # Geçmişe kaydet (Aynı haber tekrar yazılmasın)
+    # Geçmişe kaydet (Aynı haber tekrar yazılmasın ve kaynak linki saklansın)
     save_to_history(
         title=news_item["raw_title"],
         category_id=category["id"],
         wp_url=wp_post_url,
         ig_id=social_id,
+        source_url=news_item.get("source_link", ""),
     )
     # Depolama alanı dolmaması için geçici slayt ve ses parçalarını temizle
     if WORK_DIR.exists():

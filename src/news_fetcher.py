@@ -41,7 +41,13 @@ def load_history() -> dict:
     return {"items": []}
 
 
-def save_to_history(title: str, category_id: str, wp_url: str = "", ig_id: str = "") -> None:
+def save_to_history(
+    title: str,
+    category_id: str,
+    wp_url: str = "",
+    ig_id: str = "",
+    source_url: str = "",
+) -> None:
     HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
     history = load_history()
     items = history.get("items", [])
@@ -50,6 +56,7 @@ def save_to_history(title: str, category_id: str, wp_url: str = "", ig_id: str =
             "fingerprint": _title_fingerprint(title),
             "title": _normalize_title(title),
             "category_id": category_id,
+            "source_url": source_url,
             "wp_url": wp_url,
             "ig_id": ig_id,
             "published_at": datetime.now(TR_TZ).isoformat(),
