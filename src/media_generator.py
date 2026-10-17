@@ -550,9 +550,72 @@ def normalize_tr_for_tts(text: str) -> str:
 
 def _try_external_professional_tts(full_text: str, out_mp3: Path) -> bool:
     """
-    Eğer ortam değişkenlerinde profesyonel stüdyo API anahtarı tanımlıysa
-    (ELEVENLABS_API_KEY veya OPENAI_API_KEY) doğrudan tek parça stüdyo sesi üretir.
+    Öncelik sırasıyla:
+    1) Google Vids / NotebookLM Stüdyo Sesi (GEMINI_API_KEY -> gemini-2.5-flash-preview-tts, Kore / Aoede)
+    2) ElevenLabs Multilingual v2 (ELEVENLABS_API_KEY)
+    3) OpenAI Studio Audio (OPENAI_API_KEY -> gpt-4o-mini-tts)
+    üzerinden tek parça stüdyo sesi üretir.
     """
+    import base64
+    import requests
+
+    gemini_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if gemini_key:
+        try:
+            voice_name = os.environ.get("GOOGLE_VIDS_VOICE", "Kore").strip()
+            resp = requests.post(
+                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key={gemini_key}",
+                json={
+                    "contents": [
+                        {
+                            "parts": [
+                                {
+                                    "text": f"Türkçe televizyon ana haber bülteni kadın spikeri gibi çok doğal, sıcak, akıcı ve kesintisiz bir ses tonuyla sadece şu metni oku: {full_text}"
+                                }
+                            ]
+                        }
+                    ],
+                    "generationConfig": {
+                        "responseModalities": ["AUDIO"],
+                        "speechConfig": {
+                            "voiceConfig": {
+                                "prebuiltVoiceConfig": {
+                                    "voiceName": voice_name
+                                }
+                            }
+                        },
+                    },
+                },
+                timeout=40,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                b64_pcm = (
+                    data.get("candidates", [{}])[0]
+                    .get("content", {})
+                    .get("parts", [{}])[0]
+                    .get("inlineData", {})
+                    .get("data", "")
+                )
+                if b64_pcm:
+                    pcm_bytes = base64.b64decode(b64_pcm)
+                    raw_wav = out_mp3.with_suffix(".gvid.wav")
+                    with wave.open(str(raw_wav), "wb") as wf:
+                        wf.setnchannels(1)
+                        wf.setsampwidth(2)
+                        wf.setframerate(24000)
+                        wf.writeframes(pcm_bytes)
+                    subprocess.run(
+                        ["ffmpeg", "-y", "-i", str(raw_wav), "-ar", "44100", "-ac", "1", str(out_mp3)],
+                        check=True,
+                        capture_output=True,
+                    )
+                    raw_wav.unlink(missing_ok=True)
+                    print(f"      [TTS] Google Vids / Gemini 2.5 Studio ({voice_name}) seslendirme kullanıldı.")
+                    return True
+        except Exception as exc:
+            print(f"      [UYARI] Google Vids TTS hatası, yedek motora geçiliyor: {exc}")
+
     eleven_key = os.environ.get("ELEVENLABS_API_KEY", "").strip()
     if eleven_key:
         try:

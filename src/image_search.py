@@ -30,8 +30,12 @@ HEADERS = {
     "Accept-Language": "tr-TR,tr;q=0.9",
 }
 
-# Filigranlı stok siteleri ve fotoğrafın üzerine kendi manşet yazısını basan siteleri engelle
+# Filigranlı stok siteleri, yabancı stok siteleri (Pexels/Unsplash) ve fotoğrafın üzerine kendi manşet yazısını basan siteleri engelle
 BLOCKED_IMAGE_DOMAINS = (
+    "pexels.com",
+    "unsplash.com",
+    "pixabay.com",
+    "rawpixel.com",
     "ftcdn.net",
     "shutterstock.com",
     "istockphoto.com",
@@ -57,55 +61,63 @@ BLOCKED_IMAGE_DOMAINS = (
     "sabirgazetesi",
 )
 
-# Her kategoride 4 farklı, temiz (üzerinde başka sitenin manşet yazısı olmayan) gerçek fotoğraf getiren sorgular
+# Sorun yaşandığında veya ek sahne gerektiğinde her zaman gerçek Türk Parası (200 TL / 100 TL) kullanan garantili sorgular
+TURKISH_LIRA_FALLBACK_QUERIES: List[str] = [
+    "200 TL Türk Lirası banknot para destesi",
+    "Türk Lirası 200 TL ve 100 TL nakit para",
+    "200 Türk Lirası banknot yakın çekim",
+    "banka ATM 200 TL Türk Lirası para çekme",
+]
+
+# Her kategoride alakasız stok görsel çıkmasını önleyen, doğrudan konu veya Türk Lirası odaklı gerçek fotoğraf sorguları
 CATEGORY_ASSOCIATIVE_QUERIES: Dict[str, List[str]] = {
     "devlet_yardimlari": [
-        "Türk Lirası 200 TL banknot nakit para destesi",
-        "PTT kargo şubesi gişe vezne Türkiye",
-        "akıllı telefon ekranı mobil uygulama kullanan kişi",
-        "banka ATM para çeken el Türk Lirası",
+        "200 TL Türk Lirası banknot nakit para destesi",
+        "PTT şubesi gişe vezne Türkiye",
+        "Türk Lirası 200 TL ve 100 TL banknot para",
+        "banka ATM 200 TL Türk Lirası para çeken el",
     ],
     "emeklilik": [
+        "200 TL Türk Lirası banknot para sayma",
         "banka ATM nakit para çeken el Türk Lirası",
-        "Türk Lirası 200 TL ve 100 TL banknot para sayma",
-        "yaşlı emekli çift parkta yürüyüş Türkiye",
-        "banka şubesi vezne gişe işlem",
+        "Türk Lirası 200 TL ve 100 TL banknot destesi",
+        "Ziraat Bankası Halkbank Vakıfbank ATM Türk Lirası",
     ],
     "toki_konut": [
-        "TOKİ toplu konut apartman binaları mimari Türkiye",
-        "inşaat şantiyesi vinç konut projesi binalar",
-        "ev anahtarı teslim elinde anahtar tutan",
-        "modern apartman sitesi bahçe görünümü Türkiye",
+        "TOKİ toplu konut apartman binaları Türkiye",
+        "TOKİ sosyal konut projesi binalar",
+        "200 TL Türk Lirası banknot para destesi",
+        "Türk Lirası 200 TL ve 100 TL nakit para",
     ],
     "belediye_yardimlari": [
-        "süpermarket alışveriş arabası gıda reyonu",
-        "kredi kartı pos cihazı temassız ödeme market",
-        "yardım kolisi gıda paketi taşıyan",
-        "pazar alışverişi sebze meyve Türkiye",
+        "200 TL Türk Lirası banknot nakit para destesi",
+        "Türk Lirası 200 TL ve 100 TL banknot para",
+        "banka ATM 200 TL Türk Lirası para çekme",
+        "PTT şubesi vezne Türkiye",
     ],
     "kirtasiye_egitim": [
-        "okul sıralarında ders çalışan öğrenciler sınıf",
-        "kırtasiye reyonu defter kalem okul çantası",
-        "okul bahçesi öğrenciler sırt çantalı",
-        "kitap okuyan öğrenci çalışma masası",
+        "200 TL Türk Lirası banknot nakit para destesi",
+        "okul sıralarında ders çalışan öğrenciler Türkiye",
+        "Türk Lirası 200 TL ve 100 TL banknot para",
+        "banka ATM 200 TL Türk Lirası para çekme",
     ],
     "erzak_gida": [
-        "süpermarket alışveriş arabası dolu gıda reyonu",
-        "kuru gıda erzak kolisi un yağ makarna bakliyat",
-        "market kasası alışveriş poşetleri",
-        "mutfak tezgahı sebze meyve alışveriş poşeti",
+        "gıda yardım kolisi erzak paketi Türkiye",
+        "200 TL Türk Lirası banknot nakit para destesi",
+        "süpermarket alışveriş arabası gıda reyonu Türkiye",
+        "Türk Lirası 200 TL ve 100 TL banknot para",
     ],
     "kiyafet_yakacak": [
-        "doğalgaz kombi cihazı ve kalorifer peteği",
-        "doğalgaz ocağı mavi alev ateş",
-        "odun kömür sobası kış ısınma alev",
-        "kışlık mont kaban giyim mağazası askı",
+        "200 TL Türk Lirası banknot nakit para destesi",
+        "doğalgaz kombi ve kalorifer peteği",
+        "Türk Lirası 200 TL ve 100 TL banknot para",
+        "PTT şubesi gişe vezne Türkiye",
     ],
     "kredi_banka": [
-        "Türk Lirası 200 TL banknot para destesi",
-        "banka ATM nakit para çekme işlemi",
-        "kredi kartı ve Türk Lirası banknotlar",
-        "mobil bankacılık telefon ekranı finans",
+        "200 TL Türk Lirası banknot para destesi",
+        "Türk Lirası 200 TL ve 100 TL nakit para",
+        "banka ATM 200 TL Türk Lirası para çekme işlemi",
+        "200 Türk Lirası banknot para sayma",
     ],
 }
 
@@ -229,29 +241,43 @@ def fetch_news_images(
     min_count: int = 4,
 ) -> List[Path]:
     """
-    Haberle alakalı ve çağrışım yapan en az `min_count` (varsayılan 4) adet
-    birbirinden farklı, üzerinde başka sitelerin manşet yazısı bulunmayan gerçek fotoğraf indirir.
-    Her sorgudan 1 fotoğraf seçerek 4 slaytın 4 farklı sahne olmasını garanti eder.
+    Haberle doğrudan alakalı fotoğrafları indirir; eğer alakasız sorgu üretilirse veya
+    herhangi bir sahnede görsel bulunamazsa doğrudan gerçek Türk Lirası (200 TL / 100 TL)
+    banknot fotoğraflarını kullanır.
     """
     work_dir.mkdir(parents=True, exist_ok=True)
     cat_id = category.get("id", "devlet_yardimlari")
 
     assoc_list = CATEGORY_ASSOCIATIVE_QUERIES.get(cat_id, CATEGORY_ASSOCIATIVE_QUERIES["devlet_yardimlari"])
 
+    # Alakasız stok fotoğraf getirebilen jenerik kelimeleri engelle
+    vague_terms = ("telefon", "ekran", "mobil", "insan", "aile", "çift", "park", "yürüyüş", "mutlu", "evde", "masa")
+
     queries: List[str] = []
+    if news_title and len(news_title.strip()) > 12:
+        queries.append(f"{news_title.strip()[:55]} Türkiye")
+
     if ai_visual_queries:
         for q in ai_visual_queries:
-            if q and q not in queries:
-                queries.append(q)
+            q_clean = (q or "").strip()
+            if q_clean and not any(vt in q_clean.lower() for vt in vague_terms):
+                if "türkiye" not in q_clean.lower() and "tl" not in q_clean.lower() and "lira" not in q_clean.lower():
+                    q_clean = f"{q_clean} Türkiye"
+                if q_clean not in queries:
+                    queries.append(q_clean)
 
     for q in assoc_list:
+        if q not in queries:
+            queries.append(q)
+
+    for q in TURKISH_LIRA_FALLBACK_QUERIES:
         if q not in queries:
             queries.append(q)
 
     downloaded: List[Path] = []
     seen_hashes: Set[str] = set()
 
-    # 1. Tur: Her farklı sorgudan 1 adet gerçek fotoğraf indir (4 farklı sahne)
+    # 1. Tur: Her farklı sorgudan 1 adet gerçek fotoğraf indir
     for q in queries:
         if len(downloaded) >= min_count:
             break
@@ -265,16 +291,19 @@ def fetch_news_images(
                 downloaded.append(saved)
                 break
 
-    # 2. Tur: Eğer hala min_count tamamlanmadıysa ilk sorgulardan ek fotoğraf tamamla
-    if len(downloaded) < min_count and queries:
-        extra_urls = _search_images_via_headless_browser(queries[0], max_results=20)
-        for url in extra_urls:
+    # 2. Tur: Eksik kalırsa doğrudan gerçek Türk Parası (200 TL / 100 TL banknot) fotoğraflarıyla tamamla
+    if len(downloaded) < min_count:
+        for tl_q in TURKISH_LIRA_FALLBACK_QUERIES:
             if len(downloaded) >= min_count:
                 break
-            target_file = work_dir / f"real_photo_{len(downloaded):02d}.jpg"
-            saved = _download_valid_image(url, target_file, seen_hashes)
-            if saved:
-                print(f"      [EK GERÇEK FOTOĞRAF #{len(downloaded)+1}] -> {url[:68]}")
-                downloaded.append(saved)
+            extra_urls = _search_images_via_headless_browser(tl_q, max_results=20)
+            for url in extra_urls:
+                if len(downloaded) >= min_count:
+                    break
+                target_file = work_dir / f"real_photo_{len(downloaded):02d}.jpg"
+                saved = _download_valid_image(url, target_file, seen_hashes)
+                if saved:
+                    print(f"      [TÜRK PARASI YEDEK FOTOĞRAF #{len(downloaded)+1}] -> {url[:68]}")
+                    downloaded.append(saved)
 
     return downloaded
