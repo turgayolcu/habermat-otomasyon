@@ -102,7 +102,7 @@ def _extract_article_paragraphs(url: str, headers: dict) -> str:
         resp = requests.get(url, headers=headers, timeout=10)
         if resp.status_code != 200:
             return ""
-        soup = BeautifulSoup(resp.text, "html.parser")
+        soup = BeautifulSoup(resp.content, "html.parser")
         for tag in soup(["script", "style", "nav", "footer", "header", "aside"]):
             tag.decompose()
         paras = []
@@ -113,7 +113,7 @@ def _extract_article_paragraphs(url: str, headers: dict) -> str:
                 for skip in ["çerez", "cookie", "abone ol", "tüm hakları saklıdır", "gizlilik politikası"]
             ):
                 paras.append(txt)
-            if len(" ".join(paras)) > 2400:
+            if len(" ".join(paras)) > 3200:
                 break
         return "\n".join(paras)
     except Exception:

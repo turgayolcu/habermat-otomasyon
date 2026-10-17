@@ -223,8 +223,8 @@ def _render_reels_slide(
     font_logo = _get_font(40, bold=True)
     font_badge = _get_font(23, bold=True)
     font_cat = _get_font(34, bold=True)
-    font_headline = _get_font(48, bold=True)
-    font_sub = _get_font(50, bold=True)
+    font_headline = _get_font(44, bold=True)
+    font_sub = _get_font(38, bold=True)
     font_cta_title = _get_font(44, bold=True)
     font_cta_box = _get_font(54, bold=True)
     font_footer = _get_font(30, bold=True)
@@ -249,15 +249,15 @@ def _render_reels_slide(
         width=3,
     )
     headline = tr_upper(package.get("reels_headline", package.get("seo_title", "")))
-    h_lines = textwrap.wrap(headline, width=24)[:3]
-    y_h = 215 + max(0, (180 - len(h_lines) * 58) // 2)
+    h_lines = textwrap.wrap(headline, width=26)[:3]
+    y_h = 215 + max(0, (180 - len(h_lines) * 56) // 2)
     for line in h_lines:
         bbox = draw.textbbox((0, 0), line, font=font_headline)
         lw = bbox[2] - bbox[0]
         xh = (width - lw) // 2
         draw.text((xh + 3, y_h + 3), line, font=font_headline, fill=(0, 0, 0))
         draw.text((xh, y_h), line, font=font_headline, fill=COLOR_GOLD if len(h_lines) == 1 else COLOR_WHITE)
-        y_h += 58
+        y_h += 56
 
     # 3. ORTA GERÇEK FOTOĞRAF VİTRİN ÇERÇEVESİ (Y: 435 - 1055)
     # Fotoğrafın etrafına şık kırmızı/altın yayın çerçevesi ve slayt göstergesi
@@ -296,8 +296,8 @@ def _render_reels_slide(
         outline=COLOR_GOLD if is_cta_screen else COLOR_WHITE,
         width=4,
     )
-    sub_lines = textwrap.wrap(subtitle_text, width=22)[:3]
-    total_sub_h = len(sub_lines) * 66
+    sub_lines = textwrap.wrap(subtitle_text, width=32)[:4]
+    total_sub_h = len(sub_lines) * 56
     y_sub = 1080 + (305 - total_sub_h) // 2
     for sline in sub_lines:
         bbox = draw.textbbox((0, 0), sline, font=font_sub)
@@ -306,7 +306,7 @@ def _render_reels_slide(
         text_color = COLOR_GOLD if ("habermat" in sline.lower() or is_cta_screen) else COLOR_WHITE
         draw.text((x_sub + 3, y_sub + 3), sline, font=font_sub, fill=(0, 0, 0))
         draw.text((x_sub, y_sub), sline, font=font_sub, fill=text_color)
-        y_sub += 66
+        y_sub += 56
 
     # 5. ALT GOOGLE ARAMA / CTA KARTI (Y: 1415 - 1775)
     cta_bg = COLOR_RED if is_cta_screen else COLOR_NAVY_MID
@@ -439,7 +439,10 @@ def normalize_tr_for_tts(text: str) -> str:
     # Tüm farklı Unicode tire/kısa çizgi karakterlerini (\u2010-\u2015, \u2212) standart '-' yap
     s = re.sub(r"[\u2010\u2011\u2012\u2013\u2014\u2015\u2212]", "-", s)
 
-    # Tırnak işaretlerini ve parantezleri kaldır
+    # Açılımı zaten yazılmış parantez içi kısaltmaları (Örn: Sosyal ve Ekonomik Destek (SED)) tekrarı önlemek için kaldır
+    s = re.sub(r"\(\s*[A-ZÇĞİÖŞÜ]{2,8}\s*\)", " ", s)
+
+    # Tırnak işaretlerini ve kalan parantezleri kaldır
     s = re.sub(r'[“”"«»()]', " ", s)
 
     # Şapkalı harfleri düzleştir
@@ -462,6 +465,9 @@ def normalize_tr_for_tts(text: str) -> str:
         (r"\bSYDV\b", "Sosyal Yardımlaşma Vakfı"),
         (r"\bKYK\b", "Kredi ve Yurtlar Kurumu"),
         (r"\bMEB\b", "Milli Eğitim Bakanlığı"),
+        (r"\bDr\.\s*", "Doktor "),
+        (r"\bProf\.\s*", "Profesör "),
+        (r"\b(\d)\+(\d)\b", r"\1 artı \2"),
     ]
     for pat, repl in replacements:
         s = re.sub(pat, repl, s, flags=re.IGNORECASE)
@@ -476,10 +482,11 @@ def normalize_tr_for_tts(text: str) -> str:
     # 3) Yüzde işaretini (%66 -> yüzde 66) çevir
     s = re.sub(r"%\s*(\d+)", r"yüzde \1", s)
 
-    # Fazla boşlukları temizle ve cümle sonunda doğal vurgu işareti (! veya .) olmasını sağla
+    # Fazla boşlukları ve noktalama öncesi boşlukları temizle
+    s = re.sub(r"\s+([,.;:!?])", r"\1", s)
     s = re.sub(r"\s+", " ", s).strip()
     if s and s[-1] not in ".!?":
-        s += "!"
+        s += "."
     return s
 
 
@@ -735,20 +742,49 @@ def _build_synced_subtitle_chunks(
     subtitle_text: str,
     word_events: List[Dict[str, Any]],
     segment_audio_duration: float,
-    words_per_chunk: int = 4,
+    words_per_chunk: int = 12,
 ) -> List[Tuple[str, float]]:
     """
-    Spikerin gerçek kelime okuma zamanlamalarını (WordBoundary) kullanarak
-    altyazıyı 3-4 kelimelik gruplara böler ve her grubun ekranda kalacağı
-    tam süreyi (spikerin o kelimeleri konuştuğu gerçek süreyi) hesaplar.
+    TDK yazım, imla ve noktalama kurallarına uygun tam haber cümlelerini
+    anlam bütünlüğünü ve sayı/birim gruplarını ('15 bin TL' vb.) ASLA koparmadan ekranda gösterir:
+    - 14 kelimeye kadar olan cümleleri tek parça tam cümle olarak gösterir.
+    - 14 kelimeden uzun cümleleri ise virgül (,) veya doğal bağlaç sınırından 2 dengeli yan cümleye böler.
     """
     display_words = subtitle_text.strip().split()
     if not display_words:
         return [(subtitle_text, segment_audio_duration)]
 
+    total_w = len(display_words)
     chunks_words: List[List[str]] = []
-    for i in range(0, len(display_words), words_per_chunk):
-        chunks_words.append(display_words[i : i + words_per_chunk])
+
+    if total_w <= 14:
+        chunks_words.append(display_words)
+    else:
+        mid = total_w // 2
+        best_split = mid
+        best_score = -999
+        conjunctions = {"ve", "ile", "ancak", "için", "kapsamında", "ardından", "üzerinden", "göre", "birlikte"}
+        units = {"tl", "lira", "bin", "milyon", "milyar", "ay", "yıl", "gün", "konut", "hane"}
+
+        for idx in range(max(5, mid - 4), min(total_w - 4, mid + 5)):
+            prev_w = display_words[idx - 1]
+            curr_w = display_words[idx].lower().strip(".,!?;:'\"")
+            prev_clean = prev_w.lower().strip(".,!?;:'\"")
+            score = -abs(idx - mid)
+            # Virgülden hemen sonra bölmeye en yüksek önceliği ver
+            if prev_w.endswith(",") or prev_w.endswith(";"):
+                score += 20
+            elif curr_w in conjunctions or prev_clean in conjunctions:
+                score += 10
+            # Sayı ile birimini (Örn: '15' ile 'bin' veya 'bin' ile 'TL') ASLA ayırma
+            if prev_clean.isdigit() or curr_w in units:
+                score -= 50
+            if score > best_score:
+                best_score = score
+                best_split = idx
+
+        chunks_words.append(display_words[:best_split])
+        chunks_words.append(display_words[best_split:])
 
     num_chunks = len(chunks_words)
     if num_chunks == 1:

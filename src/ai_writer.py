@@ -49,9 +49,137 @@ def count_words_in_html(html_text: str) -> int:
     return len(words)
 
 
+def _tr_upper(text: str) -> str:
+    """Türkçe karakter kurallarına (TDK) uygun büyük harfe çevirme (i -> İ, ı -> I)."""
+    return text.replace("i", "İ").replace("ı", "I").upper()
+
+
+def _build_clean_tdk_reels_headline(raw_title: str) -> str:
+    """
+    Reels üst manşetini yapay zekaya uydurtmak yerine doğrudan gerçek haber başlığından
+    TDK yazım, imla ve kesme işareti kurallarına %100 sadık kalarak üretir.
+    """
+    clean = re.sub(r"\s+", " ", raw_title.strip()).replace("’", "'").replace("‘", "'")
+    # Ünlem, soru işareti veya iki noktadan önceki ana cümleyi al
+    clauses = [c.strip() for c in re.split(r"(?<=[!?])|:", clean) if len(c.strip()) >= 12]
+    chosen = clauses[0] if clauses else clean
+    chosen = chosen.rstrip(":;,. ")
+    words = chosen.split()
+    if len(words) > 9:
+        chosen = " ".join(words[:8])
+    return _tr_upper(chosen)
+
+
+def _extract_tdk_news_sentences_for_reels(news_item: Dict[str, str], spot_text: str = "") -> List[str]:
+    """
+    Kaynak haber metnindeki (ulusal basın editörleri tarafından yazılmış) gerçek paragraflardan,
+    Türkçe dilbilgisi, TDK yazım/imla kuralları ve noktalama işaretlerine (virgül, nokta, kesme işareti)
+    %100 uygun 4 adet tam haber cümlesi seçer.
+    """
+    raw_summary = news_item.get("raw_summary", "")
+    raw_title = news_item.get("raw_title", "").strip()
+
+    # Önce KAYNAK DETAYLARI (tam makale paragrafları), ardından özetin ilk tam cümlesi
+    kaynak_part = ""
+    if "KAYNAK DETAYLARI:" in raw_summary:
+        after_k = raw_summary.split("KAYNAK DETAYLARI:", 1)[1]
+        kaynak_part = after_k.split("İLGİLİ GÜNDEM NOTLARI:", 1)[0].strip()
+
+    lead_part = raw_summary.split("KAYNAK DETAYLARI:", 1)[0].strip()
+    notlar_part = ""
+    if "İLGİLİ GÜNDEM NOTLARI:" in raw_summary:
+        notlar_part = raw_summary.split("İLGİLİ GÜNDEM NOTLARI:", 1)[1].strip()
+
+    combined_blocks = [lead_part, kaynak_part, notlar_part, spot_text]
+    candidates: List[str] = []
+
+    for block in combined_blocks:
+        if not block:
+            continue
+        for line in block.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            # Ondalık/binlik sayıları (6.250, 1.071) ve unvan kısaltmalarını (Dr., Prof.) bölmeden cümlelere ayır
+            parts = re.split(
+                r"(?<!\bDr)(?<!\bProf)(?<!\bAv)(?<!\bDoç)(?<!\bOrn)(?<!\bÖrn)(?<!\d)(?<=[.!?])\s+(?=[A-ZÇĞİÖŞÜ0-9])",
+                line,
+            )
+            for p in parts:
+                s = re.sub(r"\s+", " ", p.strip())
+                # Paragraf başında nokta konulmadan bitişik kalmış BÜYÜK HARFLİ ara başlıkları temizle
+                # (Örn: "10 BİN TL'LİK DESTEK İKİ TAKSİT HALİNDE ÖDENECEK Proje kapsamında..." -> "Proje kapsamında...")
+                s = re.sub(
+                    r"^(?:[A-ZÇĞİÖŞÜ0-9'’.,/%+-]+\s+){3,10}(?=[A-ZÇĞİÖŞÜ][a-zğüşıöç]{2,})",
+                    "",
+                    s,
+                ).strip()
+                if not s:
+                    continue
+                # Yarım kalmış (... / …), soru (?), iki noktalı manşet veya çok kısa/çok uzun cümleleri ele
+                if "..." in s or "…" in s or s.endswith("?") or ":" in s:
+                    continue
+                if s[-1] not in ".!":
+                    continue
+                if len(s) < 48 or len(s) > 210:
+                    continue
+                lower_s = s.lower()
+                if any(
+                    bad in lower_s
+                    for bad in [
+                        "peki,",
+                        "işte detaylar",
+                        "merak edilenler",
+                        "haberimizde",
+                        "tıklayın",
+                        "abone ol",
+                        "habermat",
+                        "ilgili gündem",
+                        "kaynak detayları",
+                    ]
+                ):
+                    continue
+                candidates.append(s)
+
+    selected: List[str] = []
+    for cand in candidates:
+        cand_clean = cand.replace("’", "'").replace("‘", "'")
+        cand_words = set(re.findall(r"\w{4,}", cand_clean.lower()))
+        if not cand_words:
+            continue
+        # Daha önce seçilen cümlelerle %60'tan fazla kelime tekrarı varsa atla
+        is_dup = False
+        for prev in selected:
+            prev_words = set(re.findall(r"\w{4,}", prev.lower()))
+            if prev_words and (len(cand_words & prev_words) / max(len(cand_words), 1)) >= 0.60:
+                is_dup = True
+                break
+        if not is_dup:
+            selected.append(cand_clean)
+        if len(selected) >= 4:
+            break
+
+    # Eğer kaynak haber çok kısaysa (fallback vb.) başlık ve kategori bilgisinden TDK uyumlu tam cümle tamamla
+    cat_name = news_item.get("category_name", "Sosyal Destek")
+    fallback_tdk_sentences = [
+        f"{raw_title.rstrip('.!? ')}, güncel başvuru ve ödeme detaylarıyla vatandaşların gündeminde yer alıyor.",
+        f"{cat_name} kapsamındaki başvurular ve hak sahipliği sorgulamaları e-Devlet kapısı üzerinden gerçekleştiriliyor.",
+        "Şartları sağlayan vatandaşların ödemeleri, belirlenen takvim doğrultusunda PTT veya banka IBAN hesaplarına aktarılıyor.",
+    ]
+    for fb in fallback_tdk_sentences:
+        if len(selected) >= 4:
+            break
+        if fb not in selected:
+            selected.append(fb)
+
+    return selected[:4]
+
+
 def _clean_cutoff_html(html_text: str) -> str:
     """Eğer model çıktısının en son satırı yarım kalmışsa güvenli şekilde tamamlanmış son etikete keser."""
     html_text = html_text.strip()
+    # Modelin nadiren İngilizce prompt terimlerini (cpc, tbm vb.) metne sızdırmasını temizle
+    html_text = re.sub(r"\b(yüksek\s+)?(cpc|tbm)\s+(puanlı\s+|odaklı\s+|değerli\s+)?", "", html_text, flags=re.IGNORECASE)
     last_close = max(
         html_text.rfind("</p>"),
         html_text.rfind("</ul>"),
@@ -235,36 +363,22 @@ GÜNCEL KAYNAK HABER VERİLERİ:
 
 KURALLAR:
 - Asla "Detaylar ve Kapsam", "Bu yazıda ele alıyoruz" gibi yapay zeka kokan kalıplar KULLANMA!
-- Kaynak haberdeki gerçek rakamları, tarihleri, banka/kurum isimlerini ve başvuru şartlarını koru; ancak cümleleri %100 özgünleştirerek deneyimli bir ekonomi baş editörü kalemiyle yaz.
-- Google AdSense yüksek TBM (CPC) reklam eşleşmesi için konuyla ilişkili **bankacılık, finansman, ödeme planı, kamu/özel banka IBAN, PTT hesap aktarımı ve e-Devlet** terimlerini doğal biçimde geçir ve önemli terimleri `<strong>...</strong>` ile kalınlaştır.
+- Kaynak haberdeki gerçek rakamları, tarihleri, banka/kurum isimlerini ve başvuru şartlarını koru; tüm cümleleri Türk Dil Kurumu (TDK) yazım, imla ve noktalama kurallarına %100 uygun, deneyimli bir ekonomi baş editörü kalemiyle yaz.
+- Konuyla ilişkili **bankacılık, finansman, ödeme planı, kamu ve özel banka IBAN, PTT hesap aktarımı ve e-Devlet** terimlerini doğal biçimde geçir ve önemli terimleri `<strong>...</strong>` ile kalınlaştır.
 
 Lütfen yanıtını SADECE aşağıdaki `===BLOK===` sırasıyla ver:
 
 ===SEO_TITLE===
-(55-68 karakter arası, Google Keşfet tıklama oranı yüksek özgün Türkçe başlık)
+(55-68 karakter arası, TDK yazım ve imla kurallarına %100 uygun, Google Keşfet tıklama oranı yüksek Türkçe başlık)
 
 ===META_DESC===
-(145-158 karakter arası, odak anahtar kelimeli SEO meta açıklaması)
+(145-158 karakter arası, TDK yazım ve noktalama kurallarına uygun SEO meta açıklaması)
 
 ===SPOT===
-(35-45 kelimelik, haberin özünü veren güçlü düz metin spot giriş; HTML etiketi kullanma)
-
-===REELS_HEADLINE===
-(Makalenin başlığıyla birebir bağlantılı, videonun üst kartında yazacak BÜYÜK HARFLİ, maksimum 5-6 kelimelik çarpıcı kısa manşet!)
-
-===REELS_HOOK===
-(Makaledeki haberi tanıtan, videonun ilk 3 saniyesinde Türk kadın haber spikerinin tek nefeste kesintisiz okuyacağı, içinde virgül veya noktalı virgül OLMAYAN ve tam yüklemle biten 1 akıcı giriş cümlesi! Örn: "e-Devlet üzerinden yeni destek ödemeleri için başvuru ekranı bugün resmen açıldı.")
-
-===REELS_BODY===
-(Makaledeki haberin birebir özeti olan, her satırda 1 cümle olacak şekilde toplam 3 adet tek nefeste okunan TV haber spikeri cümlesi:
-- Her cümle 10-13 kelime arası olmalı, cümle içinde sesin kesilmemesi için ASLA virgül (,) veya noktalı virgül (;) kullanılmamalı ve cümle sonunda çekimli Türkçe yüklem ("açıklandı", "yatırılıyor", "yapılabiliyor" vb.) yer almalıdır!
-- Asla devrik/kesik cümle kurma, parantez kullanma, 'TL' yerine 'lira' yaz ve rakamları doğal konuşma diliyle yaz!)
+(35-45 kelimelik, haberin özünü veren, TDK dilbilgisi ve noktalama kurallarına tam uygun düz metin spot giriş; HTML etiketi kullanma)
 
 ===VISUAL_QUERIES===
 (Her satırda 1 adet olmak üzere, haberle alakalı gerçek fotoğraf araması için 4 adet Türkçe görsel arama sorgusu)
-
-===IG_SUMMARY===
-(TikTok açıklaması için 3-4 cümlelik düz metin özet)
 
 ===TAGS===
 (Virgülle ayrılmış 6 adet SEO etiketi)
@@ -276,7 +390,7 @@ Kapsam / Hak Sahipleri | (Kimleri kapsadığı)
 Başvuru ve Ödeme Kanalı | (e-Devlet / PTT / Banka IBAN)
 
 ===ARTICLE_PART1_HTML===
-(Buraya makalenin ilk yarısını -en az 260-320 kelime- sadece `<p>`, `<h2>`, `<ul>`, `<li>`, `<strong>` etiketleriyle yaz:
+(Buraya makalenin ilk yarısını -en az 260-320 kelime- sadece `<p>`, `<h2>`, `<ul>`, `<li>`, `<strong>` etiketleriyle ve kusursuz Türkçe dilbilgisiyle yaz:
 1. Önce 2 adet doyurucu giriş paragrafı (`<p>...</p>`, her biri 50-60 kelime)
 2. Konuya özel, arama hacmi yüksek 1. `<h2>` alt başlığı + altında 2 uzun `<p>` paragrafı + `<ul><li>` önemli rakam/kapsam maddeleri
 3. Konuya özel, başvuru şartlarını ve kimlerin yararlanabileceğini anlatan 2. `<h2>` alt başlığı + altında 2 uzun `<p>` paragrafı + `<ul><li>` kriter maddeleri)
@@ -284,17 +398,21 @@ Başvuru ve Ödeme Kanalı | (e-Devlet / PTT / Banka IBAN)
 
     raw_p1 = _call_ai_text(prompt_p1, system_msg)
 
-    seo_title = _strip_html(_extract_block(raw_p1, "SEO_TITLE") or news_item["raw_title"]).strip()
+    # SEO Başlık için kaynak haber başlığı zaten TDK uyumluysa veya AI başlığı bozuksa gerçek başlığı koru
+    ai_seo_title = _strip_html(_extract_block(raw_p1, "SEO_TITLE")).strip()
+    raw_clean_title = news_item["raw_title"].strip()
+    if len(raw_clean_title) <= 82:
+        seo_title = raw_clean_title
+    else:
+        seo_title = ai_seo_title if (ai_seo_title and len(ai_seo_title) >= 25) else raw_clean_title[:80]
+
     meta_desc = _strip_html(_extract_block(raw_p1, "META_DESC")).strip()
     spot_text = _strip_html(_extract_block(raw_p1, "SPOT")).strip()
-    reels_headline = _strip_html(_extract_block(raw_p1, "REELS_HEADLINE") or seo_title).strip().upper()
-    # Eğer manşet çok uzunsa ilk 6 kelimeye kısalt
-    if len(reels_headline.split()) > 7:
-        reels_headline = " ".join(reels_headline.split()[:6])
-    reels_hook = _strip_html(_extract_block(raw_p1, "REELS_HOOK")).strip()
-    reels_body_raw = _extract_block(raw_p1, "REELS_BODY").strip()
+
+    # Reels Üst Manşeti: Yapay zekaya uydurtmak yerine doğrudan gerçek haber başlığından TDK uyumlu üret
+    reels_headline = _build_clean_tdk_reels_headline(raw_clean_title)
+
     visual_queries_raw = _extract_block(raw_p1, "VISUAL_QUERIES").strip()
-    ig_summary = _strip_html(_extract_block(raw_p1, "IG_SUMMARY") or spot_text).strip()
     tags_raw = _extract_block(raw_p1, "TAGS").strip()
     table_block = _extract_block(raw_p1, "TABLE").strip()
     part1_html = _clean_cutoff_html(_extract_block(raw_p1, "ARTICLE_PART1_HTML"))
@@ -310,9 +428,9 @@ Kaynak Bilgiler:
 
 KURALLAR:
 - İlk yarıda yazılan genel giriş ve başvuru şartlarını tekrar etme!
-- Doğrudan aşağıdaki 3 bölümü `%100 özgün`, akıcı bir Kıdemli SEO Uzmanı & Ekonomi Editörü diliyle ve **Google AdSense yüksek TBM (CPC)** finans/bankacılık/e-Devlet kelimelerini (`<strong>` vurgulu) geçirerek yaz:
-  1. Konuya özel **e-Devlet, mobil şube veya ilgili kurum başvuru/sorgulama adımlarını** anlatan doğal `<h2>` başlığı + altında **2 adet uzun, detaylı `<p>` paragrafı** (her biri 55-65 kelime).
-  2. Konuya özel **ödeme takvimi, banka/PTT IBAN hesap aktarımı ve aile bütçesine/finansmana etkisini** değerlendiren doğal `<h2>` başlığı + altında **2 adet uzun, detaylı `<p>` paragrafı** (her biri 55-65 kelime).
+- Doğrudan aşağıdaki 3 bölümü `%100 özgün`, Türk Dil Kurumu (TDK) dilbilgisi, yazım ve noktalama kurallarına %100 uygun bir Ekonomi Baş Editörü diliyle ve finans/bankacılık/e-Devlet kelimelerini (`<strong>` vurgulu) geçirerek yaz:
+  1. Konuya özel **e-Devlet, mobil şube veya ilgili kurum başvuru ve sorgulama adımlarını** anlatan doğal `<h2>` başlığı + altında **2 adet uzun, detaylı `<p>` paragrafı** (her biri 55-65 kelime).
+  2. Konuya özel **ödeme takvimi, banka ve PTT IBAN hesap aktarımı ile aile bütçesine etkisini** değerlendiren doğal `<h2>` başlığı + altında **2 adet uzun, detaylı `<p>` paragrafı** (her biri 55-65 kelime).
   3. Konuya özel **Sıkça Sorulan Sorular** `<h2>` başlığı + altında vatandaşların Google'da en çok aradığı **3 adet `<h3>Soru?</h3>`** ve her birinin altında **3-4 cümlelik doyurucu `<p>Cevap...</p>`** paragrafı.
 
 Sadece saf HTML (`<h2>`, `<h3>`, `<p>`, `<strong>`) döndür, tüm cümleleri eksiksiz tamamla:
@@ -324,6 +442,11 @@ Sadece saf HTML (`<h2>`, `<h3>`, `<p>`, `<strong>`) döndür, tüm cümleleri ek
     full_article_html = part1_html + "\n" + part2_html
     table_html = _build_adsense_table_html(table_block, category["name"])
     enriched_body_html = _inject_toc_and_table_for_adsense(full_article_html, table_html)
+
+    # Spot metni olarak da öncelikle kaynak haberdeki ilk 2 gerçek TDK cümlesini kullan
+    tdk_sentences = _extract_tdk_news_sentences_for_reels(news_item, spot_text)
+    if len(tdk_sentences) >= 2:
+        spot_text = f"{tdk_sentences[0]} {tdk_sentences[1]}"
 
     spot_html = f'<p class="habermat-spot"><strong>{spot_text}</strong></p>\n' if spot_text else ""
     cta_box_html = (
@@ -341,23 +464,11 @@ Sadece saf HTML (`<h2>`, `<h3>`, `<p>`, `<strong>`) döndür, tüm cümleleri ek
 
     slug = slugify_tr(seo_title)
 
-    # Video senaryosu segmentlerini oluştur
+    # Video senaryosu (Altyazı + Seslendirme):
+    # Doğrudan kaynak haberin TDK dilbilgisi, yazım, imla ve noktalama kurallarına %100 uygun
+    # gerçek Türkçe cümlelerinden oluşturulur (Altyazı ve seslendirme birebir aynıdır).
     script_segments: List[Dict[str, Any]] = []
-    if reels_hook:
-        script_segments.append(
-            {
-                "spoken": reels_hook,
-                "subtitle": reels_hook,
-                "is_cta": False,
-            }
-        )
-    for line in reels_body_raw.splitlines():
-        cleaned_line = re.sub(r"^[-*•]\s*|^\d+[.)]\s+", "", line.strip())
-        sent = _strip_html(cleaned_line).strip().strip('"\'“”')
-        if not sent or len(sent) < 10:
-            continue
-        if "habermat" in sent.lower() or "ilk siteye" in sent.lower():
-            continue
+    for sent in tdk_sentences[:4]:
         script_segments.append(
             {
                 "spoken": sent,
@@ -366,18 +477,6 @@ Sadece saf HTML (`<h2>`, `<h3>`, `<p>`, `<strong>`) döndür, tüm cümleleri ek
             }
         )
 
-    # Eğer herhangi bir nedenle gelişme cümleleri boş geldiyse spot metninden 3 cümle üret
-    if len(script_segments) < 2 and spot_text:
-        for s in re.split(r"(?<=[.!?])\s+", spot_text)[:3]:
-            if len(s.strip()) > 12:
-                script_segments.append(
-                    {
-                        "spoken": s.strip(),
-                        "subtitle": s.strip(),
-                        "is_cta": False,
-                    }
-                )
-
     script_segments.append(
         {
             "spoken": MANDATORY_CTA_SPOKEN,
@@ -385,6 +484,8 @@ Sadece saf HTML (`<h2>`, `<h3>`, `<p>`, `<strong>`) döndür, tüm cümleleri ek
             "is_cta": True,
         }
     )
+
+    ig_summary = " ".join(tdk_sentences[:3])
 
     visual_queries = [
         line.strip().lstrip("-*•1234567890. ")
