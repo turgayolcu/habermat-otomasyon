@@ -116,8 +116,17 @@ def main() -> None:
     print("============================================================")
     print(f"[HABERMAT BOT] Çalışma Zamanı (TR): {now_tr.strftime('%d.%m.%Y %H:%M:%S')}")
 
+    forced_cat = (args.category or os.environ.get("FORCE_CATEGORY") or "").strip()
+    if not forced_cat and not args.dry_run:
+        from src.news_fetcher import load_history
+        hour_prefix = now_tr.strftime("%Y-%m-%dT%H:")
+        hist_items = load_history().get("items", [])
+        if any(str(it.get("published_at", "")).startswith(hour_prefix) for it in hist_items):
+            print(f"[BİLGİ] Bu saat dilimi ({hour_prefix}00) için haber ve Reels zaten yayınlanmış. Mükerrer paylaşım atlandı.")
+            return
+
     # 1. Saatin kategorisini belirle
-    category = get_category_for_current_hour(args.category or os.environ.get("FORCE_CATEGORY"))
+    category = get_category_for_current_hour(forced_cat or None)
     print(f"[1/6] Seçilen Kategori: {category['name']} ({category['id']})")
 
     # 2. Güncel haberi çek
