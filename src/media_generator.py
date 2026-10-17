@@ -19,9 +19,9 @@ from typing import Any, Dict, List, Optional, Tuple
 import edge_tts
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
-# Doğal insan hızında konuşan %100 Ana Dili Türkçe Kadın Haber Spikeri (Sıfır yabancı aksan)
-PRIMARY_TR_FEMALE_VOICE = os.environ.get("TTS_VOICE", "tr-TR-EmelNeural")
-VOICE_RATE = os.environ.get("TTS_RATE", "+0%")  # Tam normal insan konuşma hızı
+# iddaaliyiz.tv'de kullanılan %100 Doğal Erkek Türkçe Spiker Sesi (tr-TR-AhmetNeural)
+PRIMARY_TR_VOICE = os.environ.get("TTS_VOICE", "tr-TR-AhmetNeural")
+VOICE_RATE = os.environ.get("TTS_RATE", "+0%")  # Tam doğal spiker konuşma hızı
 
 # Renk Paleti (Kırmızı - Beyaz - Koyu Lacivert Haber TV Teması)
 COLOR_NAVY_DARK = (11, 19, 43)       # #0B132B
@@ -452,106 +452,41 @@ def normalize_tr_for_tts(text: str) -> str:
         .replace("Û", "U")
     )
 
-    # Özel okunuşlu yabancı/teknik kelimeler, bankalar ve kısaltmalar
-    phonetic_map = [
-        (r"\bGoogle['’]?a\b", "Gugıla"),
-        (r"\bGoogle['’]?da\b", "Gugılda"),
-        (r"\bGoogle['’]?dan\b", "Gugıldan"),
-        (r"\bGoogle\b", "Gugıl"),
-        (r"\bhabermat\s+nokta\s+com\b", "habermat nokta kom"),
-        (r"\bhabermat\.com\b", "habermat nokta kom"),
-        (r"\be-Devlet['’]?ten\b", "E Devletten"),
-        (r"\be-Devlet['’]?e\b", "E Devlete"),
-        (r"\be-Devlet['’]?te\b", "E Devlette"),
-        (r"\be-Devlet\b", "E Devlet"),
-        (r"\bTOKİ['’]?nin\b", "Tokinin"),
-        (r"\bTOKİ['’]?den\b", "Tokiden"),
-        (r"\bTOKİ['’]?ye\b", "Tokiye"),
-        (r"\bTOKİ\b", "Toki"),
-        (r"\bBağ-Kur['’]?lu\b", "Bağkurlu"),
-        (r"\bBağ-Kur['’]?a\b", "Bağkura"),
+    # iddaaliyiz.tv (motion_reels.py) ile birebir aynı doğal Türkçe metin hazırlama:
+    # Kelimelerin orijinal Türkçe yazılışını, kesme işaretlerini (Ankara'da, Google'a)
+    # ve doğal cümle vurgusunu (!, ., ,) KORUR; sadece kısaltmaları ve ondalık sayıları açar.
+    replacements = [
+        (r"\bhabermat\.com\b", "habermat nokta com"),
+        (r"\be-Devlet\b", "e Devlet"),
         (r"\bBağ-Kur\b", "Bağkur"),
-        (r"\bING['’]?de\b", "İngde"),
-        (r"\bING['’]?nin\b", "İngnin"),
-        (r"\bING['’]?den\b", "İngden"),
-        (r"\bING\b", "İng"),
-        (r"\bQNB\b", "Kyu En Bi"),
-        (r"\bTEB['’]?de\b", "Tebde"),
-        (r"\bTEB\b", "Teb"),
-        (r"\bTL['’]?ye\b", "liraya"),
-        (r"\bTL['’]?den\b", "liradan"),
-        (r"\bTL['’]?lik\b", "liralık"),
-        (r"\bTL['’]?yi\b", "lirayı"),
-        (r"\bTL['’]?nin\b", "liranın"),
-        (r"\bTL\b", "lira"),
-        (r"\blira['’]?ya\b", "liraya"),
-        (r"\blira['’]?dan\b", "liradan"),
-        (r"\bIBAN['’]?a\b", "İbana"),
-        (r"\bIBAN\b", "İban"),
-        (r"\bPTT['’]?den\b", "Pe Te Teden"),
-        (r"\bPTT['’]?ye\b", "Pe Te Teye"),
-        (r"\bPTT\b", "Pe Te Te"),
-        (r"\bSSK\b", "Se Se Ka"),
-        (r"\bSGK\b", "Se Ge Ka"),
         (r"\bSYDV\b", "Sosyal Yardımlaşma Vakfı"),
-        (r"\bKYK\b", "Ka Ye Ka"),
+        (r"\bKYK\b", "Kredi ve Yurtlar Kurumu"),
         (r"\bMEB\b", "Milli Eğitim Bakanlığı"),
     ]
-    for pat, repl in phonetic_map:
+    for pat, repl in replacements:
         s = re.sub(pat, repl, s, flags=re.IGNORECASE)
 
-    # 1) Binlik ayraçlı tam sayıları birleştir (Örn: 1.071 -> 1071, 250.000 -> 250000)
+    # 1) Binlik ayraçlı tam sayıları birleştir (Örn: 35.000 -> 35 bin, 250.000 -> 250 bin, 1.071 -> 1071)
+    s = re.sub(r"\b(\d{1,3})\.000\b", r"\1 bin", s)
     s = re.sub(r"\b(\d{1,3})\.(\d{3})\b", r"\1\2", s)
 
-    # 2) Ondalıklı faiz/oran sayılarını (Örn: 0.99, 1,59, 3.49) nokta/virgül bırakmadan kelimeye çevir
-    # (Nokta kalırsa TTS cümle bitti sanıp 1.2 saniye kesilme yapar!)
-    def _replace_decimal(m: re.Match) -> str:
-        left = _int_to_tr_words(int(m.group(1)))
-        right = _int_to_tr_words(int(m.group(2)))
-        return f"{left} virgül {right}"
+    # 2) Ondalıklı oranları iddaaliyiz.tv'deki gibi doğal okut (Örn: 0.99 -> 0 nokta 99)
+    s = re.sub(r"\b(\d+)[.,](\d{1,2})\b", r"\1 nokta \2", s)
 
-    s = re.sub(r"\b(\d+)[.,](\d{1,2})\b", _replace_decimal, s)
-
-    # 3) Sayı aralıklarını (Örn: 18-35) '18 ile 35' yap
-    s = re.sub(r"\b(\d+)\s*-\s*(\d+)\b", r"\1 ile \2", s)
-
-    # 4) Yüzde işaretini (%50 -> yüzde 50) çevir
+    # 3) Yüzde işaretini (%66 -> yüzde 66) çevir
     s = re.sub(r"%\s*(\d+)", r"yüzde \1", s)
 
-    # 5) Kesme işaretli sayıları (Örn: 2026'da -> iki bin yirmi altıda) kelimeyle birleştir
-    def _replace_num_suffix(m: re.Match) -> str:
-        num_val = int(m.group(1))
-        suffix = m.group(2)
-        word = _int_to_tr_words(num_val)
-        return f"{word}{suffix}"
-
-    s = re.sub(r"\b(\d+)['’]([a-zA-ZğüşıöçĞÜŞİÖÇ]+)\b", _replace_num_suffix, s)
-
-    # 6) Kalan tüm sayıları Türkçe okunuş kelimelerine çevir
-    def _replace_plain_num(m: re.Match) -> str:
-        try:
-            return _int_to_tr_words(int(m.group(0)))
-        except Exception:
-            return m.group(0)
-
-    s = re.sub(r"\b\d+\b", _replace_plain_num, s)
-
-    # 7) Özel isimlerdeki kesme işaretlerini kaldır (Örn: Ankara'da -> Ankarada)
-    s = re.sub(r"([a-zA-ZğüşıöçĞÜŞİÖÇ])['’]([a-zA-ZğüşıöçĞÜŞİÖÇ])", r"\1\2", s)
-
-    # 8) Cümle içindeki tüm virgül, nokta, iki nokta, noktalı virgül ve tireleri boşluğa çevir
-    # (Spikerin cümle ortasında kesilmesini ve duraksamasını %100 engeller)
-    s = re.sub(r"[,.;:!?…\-]+", " ", s)
-
-    # Fazla boşlukları temizle
+    # Fazla boşlukları temizle ve cümle sonunda doğal vurgu işareti (! veya .) olmasını sağla
     s = re.sub(r"\s+", " ", s).strip()
+    if s and s[-1] not in ".!?":
+        s += "!"
     return s
 
 
 def _try_external_professional_tts(full_text: str, out_mp3: Path) -> bool:
     """
     Öncelik sırasıyla:
-    1) Google Vids / NotebookLM Stüdyo Sesi (GEMINI_API_KEY -> gemini-2.5-flash-preview-tts, Kore / Aoede)
+    1) Google Vids / NotebookLM Stüdyo Sesi (GEMINI_API_KEY -> gemini-2.5-flash-preview-tts, Orus / Kore)
     2) ElevenLabs Multilingual v2 (ELEVENLABS_API_KEY)
     3) OpenAI Studio Audio (OPENAI_API_KEY -> gpt-4o-mini-tts)
     üzerinden tek parça stüdyo sesi üretir.
@@ -562,7 +497,7 @@ def _try_external_professional_tts(full_text: str, out_mp3: Path) -> bool:
     gemini_key = os.environ.get("GEMINI_API_KEY", "").strip()
     if gemini_key:
         try:
-            voice_name = os.environ.get("GOOGLE_VIDS_VOICE", "Kore").strip()
+            voice_name = os.environ.get("GOOGLE_VIDS_VOICE", "Orus").strip()
             resp = requests.post(
                 f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key={gemini_key}",
                 json={
@@ -570,7 +505,7 @@ def _try_external_professional_tts(full_text: str, out_mp3: Path) -> bool:
                         {
                             "parts": [
                                 {
-                                    "text": f"Türkçe televizyon ana haber bülteni kadın spikeri gibi çok doğal, sıcak, akıcı ve kesintisiz bir ses tonuyla sadece şu metni oku: {full_text}"
+                                    "text": f"Türkçe televizyon haber ve spor spikeri gibi çok doğal, enerjik, akıcı ve kesintisiz bir erkek ses tonuyla sadece şu metni oku: {full_text}"
                                 }
                             ]
                         }
@@ -658,9 +593,9 @@ def _try_external_professional_tts(full_text: str, out_mp3: Path) -> bool:
                 },
                 json={
                     "model": "gpt-4o-mini-tts",
-                    "voice": os.environ.get("OPENAI_TTS_VOICE", "nova"),
+                    "voice": os.environ.get("OPENAI_TTS_VOICE", "onyx"),
                     "input": full_text,
-                    "instructions": "Türkçe televizyon ana haber bülteni kadın spikeri gibi akıcı, net, kesintisiz ve doğal bir tonlamayla oku.",
+                    "instructions": "Türkçe televizyon haber spikeri gibi akıcı, enerjik ve doğal bir erkek tonlamasıyla oku.",
                 },
                 timeout=35,
             )
@@ -680,29 +615,24 @@ async def _synthesize_full_script_single_stream(
     out_mp3: Path,
 ) -> Tuple[List[float], List[List[Dict[str, Any]]]]:
     """
-    KESİLMELERİ %100 ÖNLEYEN TEK AKIŞLI (SINGLE-STREAM) STÜDYO MİMARİSİ:
-    - Cümleleri ayrı ayrı MP3'lere bölüp FFmpeg ile kesip birleştirmez (concat ve silenceremove kesilmelerini tamamen kaldırır).
-    - Tüm haber metnini TEK BİR KESİNTİSİZ SES KAYDI olarak baştan sona tek nefeste okutur.
-    - Cümle içindeki tüm virgülleri kaldırır; yalnızca cümle geçişlerinde doğal 0.25 sn nefes virgülü ve son cümlede 've' bağlacı bırakır.
-    - Tek parça kaydın içindeki WordBoundary kelime zamanlamalarını her cümlenin slaytına milisaniye hassasiyetinde dağıtır.
+    IDDAALIYIZ.TV (motion_reels.py) İLE BİREBİR AYNI DOĞAL ERKEK SPİKER (tr-TR-AhmetNeural) VE AKIŞ MİMARİSİ:
+    - Cümlelerin doğal Türkçe noktalama ve ünlem vurgularını (!, ., ,) koruyarak
+      tr-TR-AhmetNeural erkek spiker sesiyle (hız ve ton bozulmadan, %0 rate/pitch) tek seferde okutur.
+    - Kesilme yapan silenceremove veya sesi robotikleştiren compressor/equalizer filtreleri KULLANMAZ.
     """
     cleaned_clauses: List[str] = []
     clause_word_counts: List[int] = []
 
-    for idx, seg in enumerate(segments):
+    for seg in segments:
         norm_clause = normalize_tr_for_tts(seg["spoken"])
-        if idx == len(segments) - 1 and len(segments) > 1:
-            norm_clause = "ve " + norm_clause[:1].lower() + norm_clause[1:]
         words = norm_clause.split()
         cleaned_clauses.append(norm_clause)
         clause_word_counts.append(max(len(words), 1))
 
-    if len(cleaned_clauses) > 1:
-        full_phonetic_text = ", ".join(cleaned_clauses[:-1]) + " " + cleaned_clauses[-1] + "."
-    else:
-        full_phonetic_text = cleaned_clauses[0] + "."
+    # Tıpkı iddaaliyiz.tv'deki IY_VOICEOVER_TEXT ve KRAL_ORAN_VOICEOVER gibi
+    # doğal noktalama işaretli cümleleri tek paragrafta birleştir:
+    full_phonetic_text = " ".join(cleaned_clauses)
 
-    # Eğer ElevenLabs veya OpenAI API anahtarı tanımlıysa onu kullan
     if _try_external_professional_tts(full_phonetic_text, out_mp3):
         total_dur = _get_audio_duration_ffprobe(out_mp3)
         total_words = sum(clause_word_counts)
@@ -710,13 +640,12 @@ async def _synthesize_full_script_single_stream(
         return seg_durs, [[] for _ in segments]
 
     last_err = None
-    for attempt in range(3):
+    for attempt in range(10):
         try:
+            # iddaaliyiz.tv motion_reels.py generate_tts ile birebir aynı çağrı (voice="tr-TR-AhmetNeural")
             communicate = edge_tts.Communicate(
                 text=full_phonetic_text,
-                voice=PRIMARY_TR_FEMALE_VOICE,
-                rate="+3%",
-                pitch="+0Hz",
+                voice=PRIMARY_TR_VOICE,
                 boundary="WordBoundary",
             )
             all_word_events: List[Dict[str, Any]] = []
@@ -734,19 +663,17 @@ async def _synthesize_full_script_single_stream(
                         }
                     )
 
-            if len(audio_bytes) > 500:
+            if len(audio_bytes) > 1000:
                 with open(out_mp3, "wb") as f:
                     f.write(audio_bytes)
 
                 total_dur = _get_audio_duration_ffprobe(out_mp3)
-                # Sadece en sondaki 0.8 saniyelik dijital boşluğu 0.25 sn'ye kısalt (hiçbir kelimeye dokunmadan)
                 if all_word_events:
                     last_word_end = all_word_events[-1]["offset_sec"] + all_word_events[-1]["duration_sec"]
-                    trimmed_total = min(total_dur, last_word_end + 0.25)
+                    trimmed_total = min(total_dur, last_word_end + 0.35)
                 else:
                     trimmed_total = total_dur
 
-                # Kelime zamanlamalarını her segmente (cümleye) kelime sayısına göre tam eşle
                 seg_durations: List[float] = []
                 seg_word_events: List[List[Dict[str, Any]]] = []
                 total_expected_words = sum(clause_word_counts)
@@ -795,14 +722,13 @@ async def _synthesize_full_script_single_stream(
 
                     return seg_durations, seg_word_events
 
-                # Yedek: oranla dağıt
                 seg_durs = [trimmed_total * (wc / total_expected_words) for wc in clause_word_counts]
                 return seg_durs, [[] for _ in segments]
         except Exception as exc:
             last_err = exc
-            await asyncio.sleep(0.8)
+        await asyncio.sleep(1.0 + attempt * 0.4)
 
-    raise RuntimeError(f"Tek akışlı spiker seslendirmesi oluşturulamadı: {last_err}")
+    raise RuntimeError(f"Erkek spiker (tr-TR-AhmetNeural) seslendirmesi oluşturulamadı: {last_err}")
 
 
 def _build_synced_subtitle_chunks(
@@ -903,7 +829,7 @@ def generate_reels_video(
             "-t",
             f"{total_duration:.3f}",
             "-af",
-            "volume=1.25",
+            "volume=1.45",
             "-ar",
             "44100",
             "-ac",

@@ -24,7 +24,7 @@ MANDATORY_CTA_DISPLAY = (
     "Başvuru şartları ve detayları için Google'a habermat.com yaz, çıkan ilk siteye tıklayın!"
 )
 MANDATORY_CTA_SPOKEN = (
-    "Başvuru şartları ve detayları için Google'a habermat nokta com yazıp çıkan ilk siteye tıklayın."
+    "Başvuru şartları ve detayları için Google'a habermat nokta com yaz, çıkan ilk siteye tıklayın!"
 )
 
 
