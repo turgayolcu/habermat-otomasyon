@@ -91,12 +91,17 @@ def _call_ai_text(prompt: str, system_msg: str) -> str:
         except Exception:
             pass
 
-    for attempt in range(4):
+    for attempt in range(8):
         if attempt > 0:
-            time.sleep(6 * attempt)
+            time.sleep(8 + 4 * attempt)
         try:
             resp = requests.post(
                 "https://text.pollinations.ai/openai",
+                headers={
+                    "Content-Type": "application/json",
+                    "User-Agent": f"HabermatEditorBot/2.0 (Run-{random.randint(100,999)})",
+                    "Referer": "https://habermat.com",
+                },
                 json={
                     "model": "openai-fast",
                     "reasoning_effort": "low",
@@ -107,11 +112,11 @@ def _call_ai_text(prompt: str, system_msg: str) -> str:
                     ],
                     "temperature": 0.65,
                 },
-                timeout=95,
+                timeout=90,
             )
             if resp.status_code in (402, 429, 502, 503):
-                print(f"[BİLGİ] AI servisi yoğun ({resp.status_code}), 7 saniye beklenip tekrar deneniyor...")
-                time.sleep(7)
+                print(f"[BİLGİ] AI servisi yoğun ({resp.status_code}), 10 saniye beklenip tekrar deneniyor...")
+                time.sleep(10)
                 continue
             resp.raise_for_status()
             res_json = resp.json()
