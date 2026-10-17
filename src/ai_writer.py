@@ -24,7 +24,7 @@ MANDATORY_CTA_DISPLAY = (
     "Başvuru şartları ve detayları için Google'a habermat.com yaz, çıkan ilk siteye tıklayın!"
 )
 MANDATORY_CTA_SPOKEN = (
-    "Başvuru şartları ve detayları için Google'a habermat nokta com yaz, çıkan ilk siteye tıklayın."
+    "Başvuru şartları ve detayları için Google'a habermat nokta com yazıp çıkan ilk siteye tıklayın."
 )
 
 
@@ -248,12 +248,12 @@ Lütfen yanıtını SADECE aşağıdaki `===BLOK===` sırasıyla ver:
 (Makalenin başlığıyla birebir bağlantılı, videonun üst kartında yazacak BÜYÜK HARFLİ, maksimum 5-6 kelimelik çarpıcı kısa manşet!)
 
 ===REELS_HOOK===
-(Makaledeki haberi tanıtan, videonun ilk 3 saniyesinde Türk kadın haber spikerinin söyleyeceği çok doğal, merak uyandıran, ortasında nefes virgülü (,) bulunan ve tam yüklemle biten 1 giriş cümlesi! Örn: "e-Devlet üzerinden yeni destek ödemeleri resmen başladı, peki kimler başvuru yapabilir?")
+(Makaledeki haberi tanıtan, videonun ilk 3 saniyesinde Türk kadın haber spikerinin tek nefeste kesintisiz okuyacağı, içinde virgül veya noktalı virgül OLMAYAN ve tam yüklemle biten 1 akıcı giriş cümlesi! Örn: "e-Devlet üzerinden yeni destek ödemeleri için başvuru ekranı bugün resmen açıldı.")
 
 ===REELS_BODY===
-(Makaledeki haberin birebir özeti olan, her satırda 1 cümle olacak şekilde toplam 3 adet çok doğal TV haber spikeri cümlesi:
-- Her cümle 10-14 kelime arası olmalı, ortasında doğal vurgu/duraksama için mutlaka virgül (,) bulunmalı ve sonunda çekimli Türkçe eylem/yüklem ("açıklandı", "yatırılıyor", "yapılabiliyor" vb.) yer almalıdır!
-- Asla yüklemsiz devrik/kesik başlık cümlesi kurma, parantez kullanma, 'TL' yerine 'lira' yaz ve küsuratlı rakamları yuvarlayarak doğal konuşma diliyle yaz!)
+(Makaledeki haberin birebir özeti olan, her satırda 1 cümle olacak şekilde toplam 3 adet tek nefeste okunan TV haber spikeri cümlesi:
+- Her cümle 10-13 kelime arası olmalı, cümle içinde sesin kesilmemesi için ASLA virgül (,) veya noktalı virgül (;) kullanılmamalı ve cümle sonunda çekimli Türkçe yüklem ("açıklandı", "yatırılıyor", "yapılabiliyor" vb.) yer almalıdır!
+- Asla devrik/kesik cümle kurma, parantez kullanma, 'TL' yerine 'lira' yaz ve rakamları doğal konuşma diliyle yaz!)
 
 ===VISUAL_QUERIES===
 (Her satırda 1 adet olmak üzere, haberle alakalı gerçek fotoğraf araması için 4 adet Türkçe görsel arama sorgusu)

@@ -57,6 +57,9 @@ jobs:
           IG_USERNAME: ${{ secrets.IG_USERNAME || 'haberoku34' }}
           IG_PASSWORD: ${{ secrets.IG_PASSWORD }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           FORCE_CATEGORY: ${{ github.event.inputs.force_category }}
         run: |
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
