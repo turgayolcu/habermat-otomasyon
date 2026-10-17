@@ -69,8 +69,16 @@ def save_to_history(
 
 
 def is_already_published(title: str, history: dict) -> bool:
-    fp = _title_fingerprint(title)
     norm_new = _normalize_title(title).lower()
+    # Yurt dışı insani yardım haberlerini atla (Sadece Türkiye içi vatandaş başvuruları seçilsin)
+    foreign_keywords = [
+        "bosna", "gazze", "filistin", "suriye", "lübnan", "sudan",
+        "somali", "afrika", "yemen", "afganistan", "ukrayna", "pakistan",
+    ]
+    if any(fk in norm_new for fk in foreign_keywords):
+        return True
+
+    fp = _title_fingerprint(title)
     new_words = set(re.findall(r"\w{4,}", norm_new))
 
     for item in history.get("items", []):
