@@ -41,6 +41,7 @@ FOREIGN_AND_OFFTOPIC_BLOCKLIST = (
     "bozulmuş", "tarihi geçmiş", "arkeoloji", "amatör spor", "kulüb", "kulüp",
     "milli takım", "sokak hayvan", "hayvansever", "farkındalık", "şenlik",
     "festival", "konser", "tiyatro", "turnuva", "asfalt", "ilaçlama",
+    "ödül", "sardis", "yarışma", "tören", "ihale", "anma", "sergi",
 )
 
 
