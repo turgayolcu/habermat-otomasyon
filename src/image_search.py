@@ -218,21 +218,41 @@ def _extract_turkish_subject_query(news_title: str, cat_id: str) -> Optional[str
 
 def _search_images_via_headless_browser(query: str, max_results: int = 15) -> List[str]:
     """
-    Gerçek Chrome/Edge Headless tarayıcısı ile YALNIZCA Türkiye sınırları içinde
-    (`setmkt=tr-TR&setlang=tr&cc=TR` ve `site:tr`) görsel araması yapar.
+    Önce doğrudan hızlı HTTP (requests) ile, gerekirse Headless tarayıcı ile
+    YALNIZCA Türkiye sınırları içinde (`site:tr`) görsel araması yapar.
     """
-    browser = _find_headless_browser()
-    if not browser:
-        return []
-
     if "site:" not in query.lower():
         query = f"{query} site:tr"
 
     encoded = urllib.parse.quote(query)
-    url = (
-        f"https://www.bing.com/images/search?q={encoded}"
-        f"&qft=+filterui:photo-photo&setmkt=tr-TR&setlang=tr&cc=TR&FORM=IRFLTR"
-    )
+    url = f"https://www.bing.com/images/search?q={encoded}&qft=+filterui:photo-photo&FORM=IRFLTR"
+    urls: List[str] = []
+
+    # 1. Hızlı HTTP araması (0.3 sn - zaman aşımı olmadan)
+    try:
+        resp = requests.get(url, headers=HEADERS, timeout=7)
+        if resp.status_code == 200 and resp.text:
+            m_attrs = re.findall(r'\bm="(\{[^"]+\})"', resp.text)
+            for m_raw in m_attrs:
+                try:
+                    data = json.loads(html.unescape(m_raw))
+                    murl = data.get("murl", "")
+                    if murl and _is_clean_url(murl) and murl not in urls:
+                        urls.append(murl)
+                    if len(urls) >= max_results:
+                        return urls
+                except Exception:
+                    continue
+    except Exception:
+        pass
+
+    if urls:
+        return urls
+
+    # 2. Yedek: Headless Tarayıcı
+    browser = _find_headless_browser()
+    if not browser:
+        return urls
 
     try:
         res = subprocess.run(
@@ -256,7 +276,6 @@ def _search_images_via_headless_browser(query: str, max_results: int = 15) -> Li
         )
         dom = res.stdout
         m_attrs = re.findall(r'\bm="(\{[^"]+\})"', dom)
-        urls: List[str] = []
         for m_raw in m_attrs:
             try:
                 data = json.loads(html.unescape(m_raw))
@@ -270,7 +289,7 @@ def _search_images_via_headless_browser(query: str, max_results: int = 15) -> Li
         return urls
     except Exception as exc:
         print(f"[UYARI] Headless tarayıcı görsel arama zaman aşımı ({query[:30]}): {exc}")
-        return []
+        return urls
 
 
 def _has_heavy_news_banner_or_graphic(img: Image.Image) -> bool:
