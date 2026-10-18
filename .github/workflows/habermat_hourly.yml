@@ -2,14 +2,15 @@ name: Habermat.com Saatlik Haber ve Reels Otomasyonu
 
 on:
   schedule:
-    # Türkiye saati (UTC+3) ile sabah 07:00'den gece 24:00'e (00:00) kadar her saat başı çalışır
-    # UTC karşılığı: 04:00 - 21:00 arası her saat başı (Toplam 18 kez/gün)
-    - cron: '1 4-21 * * *'
+    # Türkiye saati (UTC+3) ile sabah 07:00'den gece 24:00'e (00:00) kadar her saat çalışır.
+    # GitHub Actions yoğunluk kaynaklı gecikmeleri önlemek için her saatin 1., 15. ve 30. dakikasında tetiklenir
+    # (main.py içinde o saat yayınlandıysa mükerrer yayını otomatik atlayan koruma mevcuttur).
+    - cron: '1,15,30 4-21 * * *'
 
   workflow_dispatch:
     inputs:
       force_category:
-        description: 'Kategori seçin (boş bırakılırsa saatin kategorisi çalışır: devlet_yardimlari, emeklilik, toki_konut, belediye_yardimlari, kirtasiye_egitim, erzak_gida, kiyafet_yakacak, kredi_banka)'
+        description: 'Kategori seçin (boş bırakılırsa saatin kategorisi çalışır)'
         required: false
         default: ''
       dry_run:
@@ -43,7 +44,8 @@ jobs:
       - name: Python Kütüphanelerini ve Tarayıcıyı Yükle
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install --upgrade -r requirements.txt
+          pip install --upgrade edge-tts
           playwright install --with-deps chromium
 
       - name: Saatlik Haber ve TikTok Video Botunu Çalıştır
@@ -85,5 +87,4 @@ jobs:
           git config user.name "habermat-bot"
           git config user.email "bot@habermat.com"
           git add data/published_history.json
-          git diff --staged --quiet || git commit -m "chore: saatlik haber gecmisi guncellendi [skip ci]"
-          git push
+          git diff --staged --quiet || (git pull --rebase && git commit -m "chore: saatlik haber gecmisi guncellendi" && git push)
