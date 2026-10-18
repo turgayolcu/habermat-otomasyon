@@ -398,13 +398,13 @@ Başvuru ve Ödeme Kanalı | (e-Devlet / PTT / Banka IBAN)
 
     raw_p1 = _call_ai_text(prompt_p1, system_msg)
 
-    # SEO Başlık için kaynak haber başlığı zaten TDK uyumluysa veya AI başlığı bozuksa gerçek başlığı koru
-    ai_seo_title = _strip_html(_extract_block(raw_p1, "SEO_TITLE")).strip()
+    # SEO Başlık için her zaman kaynak haberin %100 TDK uyumlu gerçek Türkçe başlığını koru
     raw_clean_title = news_item["raw_title"].strip()
-    if len(raw_clean_title) <= 82:
+    if len(raw_clean_title) <= 105:
         seo_title = raw_clean_title
     else:
-        seo_title = ai_seo_title if (ai_seo_title and len(ai_seo_title) >= 25) else raw_clean_title[:80]
+        title_parts = [p.strip() for p in re.split(r"(?<=[!?])\s+", raw_clean_title) if len(p.strip()) >= 25]
+        seo_title = title_parts[0] if title_parts else raw_clean_title[:100].rsplit(" ", 1)[0]
 
     meta_desc = _strip_html(_extract_block(raw_p1, "META_DESC")).strip()
     spot_text = _strip_html(_extract_block(raw_p1, "SPOT")).strip()
