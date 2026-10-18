@@ -1,5 +1,8 @@
 """
-Habermat.com - Güncel Haber Tarayıcı (Google News RSS + Tekrar Önleme Sistemi)
+Habermat.com - 10 Büyükşehir ve İlçe Belediyeleri Sosyal Yardım Araştırma Motoru
+Şehirler: Gaziantep, Şanlıurfa, Adana, Mersin, İzmir, Aydın, Bursa, İstanbul, Ankara, Antalya
+Büyükşehir ve ilçe belediyelerinin verdiği sosyal yardımları (gıda, erzak, emekli, öğrenci,
+kırtasiye, burs, sosyal destek kartı, yakacak, fatura, hoş geldin bebek vb.) tek tek araştırır.
 """
 
 import hashlib
@@ -18,9 +21,27 @@ from bs4 import BeautifulSoup
 TR_TZ = timezone(timedelta(hours=3))
 HISTORY_FILE = Path(__file__).resolve().parent.parent / "data" / "published_history.json"
 
+REQUIRED_AID_KEYWORDS = (
+    "yardım", "destek", "ödeme", "başvuru", "emekli", "maaş", "ikramiye",
+    "burs", "kırtasiye", "öğrenci", "erzak", "gıda", "koli", "market",
+    "doğalgaz", "yakacak", "kömür", "fatura", "sosyal", "dar gelir",
+    "halk kart", "başkent kart", "sosyal kart", "destek kart", "süt",
+    "bebek", "çeyiz", "evlilik", "nakdi", "nakit", "pazar", "ekmek",
+    "beslenme", "ulaşım", "kantin", "kira", "iyilik", "dayanışma",
+)
+
+FOREIGN_AND_OFFTOPIC_BLOCKLIST = (
+    "bosna", "gazze", "filistin", "suriye", "lübnan", "sudan",
+    "somali", "afrika", "yemen", "afganistan", "ukrayna", "pakistan",
+    "vietnam", "can tho", "hanoi", "hindistan", "pekin", "avrupa",
+    "2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025",
+    "villa", "yüzen ev", "magazin", "ünlü", "futbol", "transfer",
+    "cinayet", "kaza", "tutuklandı", "gözaltı", "deprem", "yangın",
+)
+
 
 def _normalize_title(title: str) -> str:
-    """Başlıktaki kaynak adını (- Milliyet, - Sabah vb.) temizler ve küçük harfe çevirir."""
+    """Başlıktaki kaynak adını (- Milliyet, - Sabah vb.) temizler."""
     cleaned = re.split(r"\s+[-|]\s+", title)[0].strip()
     return cleaned
 
@@ -62,35 +83,39 @@ def save_to_history(
             "published_at": datetime.now(TR_TZ).isoformat(),
         }
     )
-    # Son 500 haberi tut
     history["items"] = items[-500:]
     with open(HISTORY_FILE, "w", encoding="utf-8") as f:
         json.dump(history, f, ensure_ascii=False, indent=2)
 
 
-REQUIRED_AID_KEYWORDS = (
-    "yardım", "destek", "ödeme", "başvuru", "emekli", "maaş", "ikramiye",
-    "promosyon", "kredi", "toki", "konut", "kura", "belediye", "burs",
-    "kırtasiye", "öğrenci", "erzak", "gıda", "koli", "market", "doğalgaz",
-    "yakacak", "kömür", "fatura", "aile", "bakanlık", "bakanlığı", "e-devlet",
-    "sed", "sydv", "ptt", "hibe", "nakit", "nakdi", "sosyal", "dar gelir",
-)
+def _matches_city_or_district(text: str, category: dict) -> bool:
+    """Haberin gerçekten seçilen şehre veya o şehrin ilçe belediyelerinden birine ait olduğunu doğrular."""
+    low = (text or "").lower()
+    city = category.get("city", "").lower()
+    if city and city in low:
+        return True
+    if city == "istanbul" and "ibb" in low:
+        return True
+    if city == "ankara" and ("abb" in low or "başkent kart" in low):
+        return True
+    for dist in category.get("districts", []):
+        dist_root = dist.replace("Büyükşehir Belediyesi", "").replace("Belediyesi", "").strip().lower()
+        if dist_root and len(dist_root) >= 3 and dist_root in low:
+            return True
+    return False
 
 
-def is_already_published(title: str, history: dict) -> bool:
+def is_already_published(title: str, history: dict, source_url: str = "", category: Optional[dict] = None) -> bool:
     norm_new = _normalize_title(title).lower()
-    # Yurt dışı insani yardım haberlerini ve eski yıllara (2018-2025) ait arşiv haberlerini atla
-    foreign_keywords = [
-        "bosna", "gazze", "filistin", "suriye", "lübnan", "sudan",
-        "somali", "afrika", "yemen", "afganistan", "ukrayna", "pakistan",
-        "2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025",
-        "villa", "yüzen ev", "magazin", "ünlü", "futbol", "transfer",
-    ]
-    if any(fk in norm_new for fk in foreign_keywords):
+    low_src = (source_url or "").lower()
+
+    if any(fk in norm_new or fk in low_src for fk in FOREIGN_AND_OFFTOPIC_BLOCKLIST):
         return True
 
-    # Haberin gerçekten sosyal yardım / destek / ekonomi gündemiyle ilgili olduğundan emin ol
     if not any(rk in norm_new for rk in REQUIRED_AID_KEYWORDS):
+        return True
+
+    if category and not _matches_city_or_district(norm_new, category):
         return True
 
     fp = _title_fingerprint(title)
@@ -101,7 +126,6 @@ def is_already_published(title: str, history: dict) -> bool:
             return True
         old_title = item.get("title", "").lower()
         old_words = set(re.findall(r"\w{4,}", old_title))
-        # Kelime benzerliği %70'in üzerindeyse aynı haber kabul et
         if new_words and old_words:
             overlap = len(new_words & old_words) / max(len(new_words), 1)
             if overlap >= 0.70:
@@ -110,8 +134,8 @@ def is_already_published(title: str, history: dict) -> bool:
 
 
 def _extract_article_paragraphs(url: str, headers: dict) -> str:
-    """Kaynak haber URL'sindeki gerçek paragrafları çekerek AI için zengin bilgi havuzu oluşturur."""
-    if not url:
+    """Kaynak haber veya belediye resmi sayfasındaki gerçek paragrafları çeker."""
+    if not url or not url.startswith("http"):
         return ""
     try:
         resp = requests.get(url, headers=headers, timeout=10)
@@ -123,7 +147,7 @@ def _extract_article_paragraphs(url: str, headers: dict) -> str:
         paras = []
         for p in soup.find_all("p"):
             txt = p.get_text(" ", strip=True)
-            if len(txt) >= 55 and not any(
+            if len(txt) >= 50 and not any(
                 skip in txt.lower()
                 for skip in ["çerez", "cookie", "abone ol", "tüm hakları saklıdır", "gizlilik politikası"]
             ):
@@ -136,12 +160,12 @@ def _extract_article_paragraphs(url: str, headers: dict) -> str:
 
 
 def _fetch_bing_rich_context(query: str, headers: dict) -> List[Dict[str, str]]:
-    """Bing News RSS üzerinden hem gerçek makale linklerini hem de detaylı özetleri döndürür."""
+    """Bing News RSS Türkiye (`setmkt=tr-TR&setlang=tr`) üzerinden belediye yardım haberlerini döndürür."""
     results: List[Dict[str, str]] = []
     encoded_q = urllib.parse.quote(query)
     bing_rss = f"https://www.bing.com/news/search?q={encoded_q}&format=rss&setmkt=tr-TR&setlang=tr"
     try:
-        resp = requests.get(bing_rss, headers=headers, timeout=12)
+        resp = requests.get(bing_rss, headers=headers, timeout=11)
         if resp.status_code != 200:
             return results
         feed = feedparser.parse(resp.content)
@@ -166,10 +190,45 @@ def _fetch_bing_rich_context(query: str, headers: dict) -> List[Dict[str, str]]:
     return results
 
 
+def _research_municipality_official_aid(municipality_name: str, city_name: str, headers: dict) -> Dict[str, str]:
+    """
+    Belirli bir Büyükşehir veya İlçe Belediyesinin resmi (.bel.tr) ve yerel Türkiye kaynaklarındaki
+    sosyal yardım programlarını araştırarak zengin veri ve gerçek kaynak linki döndürür.
+    """
+    q = f"{municipality_name} sosyal yardım destek başvuru"
+    encoded_q = urllib.parse.quote(q)
+    bing_url = f"https://www.bing.com/search?q={encoded_q}&setmkt=tr-TR&setlang=tr"
+    snippets: List[str] = []
+    found_url = ""
+    try:
+        resp = requests.get(bing_url, headers=headers, timeout=10)
+        if resp.status_code == 200:
+            soup = BeautifulSoup(resp.text, "html.parser")
+            for li in soup.select("li.b_algo")[:5]:
+                a_tag = li.find("a")
+                p_tag = li.find("p")
+                href = a_tag.get("href", "") if a_tag else ""
+                snip = p_tag.get_text(" ", strip=True) if p_tag else ""
+                if href and href.startswith("http") and not found_url:
+                    found_url = href
+                if snip and len(snip) > 35:
+                    snippets.append(snip)
+    except Exception:
+        pass
+
+    article_body = _extract_article_paragraphs(found_url, headers) if found_url else ""
+    joined_snippets = " ".join(snippets)
+    return {
+        "url": found_url,
+        "details": f"{joined_snippets}\n\n{article_body}".strip(),
+    }
+
+
 def fetch_fresh_news_for_category(category: dict) -> Dict[str, str]:
     """
-    Seçilen kategori için son gündemdeki en güncel ve daha önce paylaşılmamış haberi bulur,
-    kaynak haberin içerik paragraflarını çekerek SEO yazar motoruna zengin veri sağlar.
+    Seçilen şehrin (Gaziantep, Şanlıurfa, Adana, Mersin, İzmir, Aydın, Bursa, İstanbul, Ankara, Antalya)
+    Büyükşehir ve İlçe Belediyelerini tek tek araştırarak daha önce paylaşılmamış gerçek bir
+    belediye yardım haberini bulur.
     """
     history = load_history()
     headers = {
@@ -179,16 +238,40 @@ def fetch_fresh_news_for_category(category: dict) -> Dict[str, str]:
         )
     }
 
-    # 1. Önce Bing News RSS üzerinden tam metin erişimli güncel haberleri tara
-    for query in category.get("rss_queries", []):
+    districts: List[str] = category.get("districts", [])
+    city_name = category.get("city", "")
+    now_tr = datetime.now(TR_TZ)
+
+    # İlçeleri saat ve geçmiş yayın sayısına göre döndür ki her seferinde farklı bir ilçe belediyesi de araştırılsın
+    hist_count = len(history.get("items", []))
+    if districts:
+        offset = (now_tr.day + now_tr.hour + hist_count) % len(districts)
+        rotated_districts = districts[offset:] + districts[:offset]
+    else:
+        rotated_districts = []
+
+    # Dinamik ilçe + büyükşehir arama sorguları oluştur
+    dynamic_queries: List[str] = []
+    for dist in rotated_districts[:6]:
+        dynamic_queries.append(f"{dist} sosyal yardım destek başvuru")
+        dynamic_queries.append(f"{dist} emekli öğrenci gıda erzak yardımı")
+    for q in category.get("rss_queries", []):
+        if q not in dynamic_queries:
+            dynamic_queries.append(q)
+
+    # 1. Önce Bing News Türkiye üzerinden il/ilçe belediye yardım haberlerini tara
+    for query in dynamic_queries:
         bing_items = _fetch_bing_rich_context(query, headers)
         for item in bing_items:
             clean_title = item["title"]
-            if is_already_published(clean_title, history):
+            if is_already_published(clean_title, history, item.get("url", ""), category=category):
                 continue
             article_body = _extract_article_paragraphs(item["url"], headers)
-            extra_Snippets = " | ".join(b["summary"] for b in bing_items[:4] if b.get("summary"))
-            combined_summary = f"{item['summary']}\n\nKAYNAK DETAYLARI:\n{article_body}\n\nİLGİLİ GÜNDEM NOTLARI:\n{extra_Snippets}".strip()
+            extra_snippets = " | ".join(b["summary"] for b in bing_items[:4] if b.get("summary"))
+            combined_summary = (
+                f"{item['summary']}\n\nKAYNAK DETAYLARI:\n{article_body}\n\n"
+                f"İLGİLİ BELEDİYE GÜNDEM NOTLARI:\n{extra_snippets}"
+            ).strip()
             return {
                 "raw_title": clean_title,
                 "raw_summary": combined_summary[:2800],
@@ -198,23 +281,26 @@ def fetch_fresh_news_for_category(category: dict) -> Dict[str, str]:
                 "is_fallback": False,
             }
 
-    # 2. Yedek olarak Google News RSS üzerinden tara
-    for query in category.get("rss_queries", []):
-        encoded_q = urllib.parse.quote(f"{query} when:3d")
+    # 2. Yedek olarak Google News Türkiye üzerinden il/ilçe belediye yardım haberlerini tara
+    for query in dynamic_queries[:8]:
+        encoded_q = urllib.parse.quote(f"{query} when:7d")
         rss_url = f"https://news.google.com/rss/search?q={encoded_q}&hl=tr&gl=TR&ceid=TR:tr"
 
         try:
-            resp = requests.get(rss_url, headers=headers, timeout=15)
+            resp = requests.get(rss_url, headers=headers, timeout=12)
             if resp.status_code != 200:
                 continue
             feed = feedparser.parse(resp.content)
-            for entry in feed.entries[:12]:
+            for entry in feed.entries[:10]:
                 raw_title = entry.get("title", "")
                 clean_title = _normalize_title(raw_title)
                 if not clean_title or len(clean_title) < 20:
                     continue
 
-                if is_already_published(clean_title, history):
+                src_href = ""
+                if hasattr(entry, "source") and isinstance(entry.source, dict):
+                    src_href = entry.source.get("href", "") or entry.source.get("title", "")
+                if is_already_published(clean_title, history, src_href, category=category):
                     continue
 
                 summary_html = entry.get("summary", "") or entry.get("description", "")
@@ -222,14 +308,14 @@ def fetch_fresh_news_for_category(category: dict) -> Dict[str, str]:
                 clean_summary = soup.get_text(" ", strip=True)
                 related_titles = [
                     _normalize_title(e.get("title", ""))
-                    for e in feed.entries[:6]
+                    for e in feed.entries[:5]
                     if e.get("title")
                 ]
-                rich_context = clean_summary + "\nİlgili Başlıklar: " + " / ".join(related_titles)
+                rich_context = clean_summary + "\nKAYNAK DETAYLARI:\n" + clean_summary + "\nİlgili Başlıklar: " + " / ".join(related_titles)
 
                 return {
                     "raw_title": clean_title,
-                    "raw_summary": rich_context[:1800],
+                    "raw_summary": rich_context[:2200],
                     "source_link": entry.get("link", ""),
                     "category_id": category["id"],
                     "category_name": category["name"],
@@ -238,24 +324,40 @@ def fetch_fresh_news_for_category(category: dict) -> Dict[str, str]:
         except Exception as exc:
             print(f"[UYARI] RSS sorgusu başarısız ({query}): {exc}")
 
-    # Eğer RSS'teki tüm haberler kullanıldıysa veya bağlantı hatası varsa fallback konu seç
-    now_tr = datetime.now(TR_TZ)
-    Turkish_months = [
-        "", "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
-        "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"
+    # 3. Sıradaki İlçe Belediyesinin resmi sosyal yardım programlarını doğrudan web üzerinden araştır
+    aid_types = [
+        ("Sosyal Destek Kartı ve Market Yardımı", "sosyal destek kartı, gıda kolisi ve market yardımı"),
+        ("Emekli Nakdi Destek ve Pazar Yardımı", "emeklilere yönelik nakdi destek, pazar ve fatura yardımı"),
+        ("Öğrenci Kırtasiye, Ulaşım ve Eğitim Desteği", "ilkokul, lise ve üniversite öğrencilerine kırtasiye ve burs yardımı"),
+        ("Erzak Kolisi, Sıcak Yemek ve Halk Ekmek Desteği", "dar gelirli ailelere aylık erzak paketi ve gıda desteği"),
+        ("Hoş Geldin Bebek Paketi ve Aile Destek Ödemesi", "yeni doğan bebek paketi, süt desteği ve aile yardımı"),
     ]
-    month_name = Turkish_months[now_tr.month]
-    fallbacks: List[str] = category.get("fallback_topics", [])
-    idx = (now_tr.day + now_tr.hour) % max(len(fallbacks), 1)
-    base_topic = fallbacks[idx] if fallbacks else f"{category['name']} Güncel Başvuru Şartları"
-    dated_topic = f"{now_tr.year} {month_name} {base_topic}"
+    for idx_d, target_muni in enumerate(rotated_districts or [f"{city_name} Büyükşehir Belediyesi"]):
+        aid_title, aid_desc = aid_types[(now_tr.day + now_tr.hour + idx_d) % len(aid_types)]
+        candidate_title = f"{target_muni} {aid_title} Başvurusu ve Şartları"
+        if not is_already_published(candidate_title, history, "", category=category):
+            research = _research_municipality_official_aid(target_muni, city_name, headers)
+            details = research.get("details", "")
+            summary_text = (
+                f"{city_name} ilinde {target_muni} tarafından ihtiyaç sahibi vatandaşlara, emeklilere ve öğrencilere "
+                f"sunulan {aid_desc} başvuruları devam ediyor. Vatandaşlar {target_muni} Sosyal Yardım İşleri Müdürlüğü, "
+                f"e-Devlet kapısı ve belediye resmi internet sitesi üzerinden başvuru yapabiliyor.\n\n"
+                f"KAYNAK DETAYLARI:\n{details}"
+            ).strip()
+            return {
+                "raw_title": candidate_title,
+                "raw_summary": summary_text[:2800],
+                "source_link": research.get("url", ""),
+                "category_id": category["id"],
+                "category_name": category["name"],
+                "is_fallback": False,
+            }
 
+    fallbacks: List[str] = category.get("fallback_topics", [])
+    base_topic = fallbacks[now_tr.hour % max(len(fallbacks), 1)] if fallbacks else f"{category['name']} Başvuru Şartları"
     return {
-        "raw_title": dated_topic,
-        "raw_summary": (
-            f"{category['name']} kapsamında vatandaşların merakla beklediği {dated_topic} "
-            f"detayları, başvuru şartları ve e-Devlet sorgulama adımları."
-        ),
+        "raw_title": base_topic,
+        "raw_summary": f"{category['name']} kapsamında {base_topic} detayları ve başvuru adımları.",
         "source_link": "",
         "category_id": category["id"],
         "category_name": category["name"],

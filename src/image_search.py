@@ -72,55 +72,67 @@ BLOCKED_IMAGE_DOMAINS = (
     "fotomac.com.tr",
 )
 
-# Kategoriye göre yalnızca Türkiye gündemi ve konusuyla ilgili anahtar kelime sorguları (Türk parası kuralı olmadan)
+# 10 Şehir Büyükşehir ve İlçe Belediyeleri için Türkiye içi konu anahtar kelime sorguları
 CATEGORY_TOPIC_QUERIES: Dict[str, List[str]] = {
-    "devlet_yardimlari": [
-        "Aile ve Sosyal Hizmetler Bakanlığı sosyal yardım",
-        "Aile Bakanlığı destek ödemesi açıklama",
-        "Sosyal Yardımlaşma ve Dayanışma Vakfı",
-        "e-Devlet sosyal yardım başvurusu",
+    "gaziantep_belediye": [
+        "Gaziantep Büyükşehir Belediyesi sosyal yardım",
+        "Şahinbey Belediyesi sosyal destek yardımı",
+        "Şehitkamil Belediyesi gıda yardımı",
+        "Gaziantep belediye sosyal market destek",
     ],
-    "emeklilik": [
-        "SSK Bağ-Kur emekli maaşı zam ödeme",
-        "Çalışma ve Sosyal Güvenlik Bakanlığı emekli",
-        "SGK emekli ikramiye promosyon",
-        "banka şubesi emekli maaş ödemesi",
+    "sanliurfa_belediye": [
+        "Şanlıurfa Büyükşehir Belediyesi sosyal yardım",
+        "Haliliye Belediyesi gıda erzak yardımı",
+        "Eyyübiye Karaköprü Belediyesi sosyal destek",
+        "Şanlıurfa belediye yardım dağıtımı",
     ],
-    "toki_konut": [
-        "TOKİ sosyal konut projesi binalar",
-        "TOKİ toplu konut inşaat şantiye",
-        "TOKİ kura çekilişi konut teslim",
-        "Çevre Şehircilik Bakanlığı TOKİ konutları",
+    "adana_belediye": [
+        "Adana Büyükşehir Belediyesi sosyal yardım",
+        "Seyhan Belediyesi Yüreğir Belediyesi yardım",
+        "Çukurova Sarıçam Belediyesi sosyal destek",
+        "Adana belediye gıda kolisi halk kart",
     ],
-    "belediye_yardimlari": [
-        "Büyükşehir Belediyesi sosyal destek yardımı",
-        "belediye sosyal yardım kartı destek",
-        "belediye hizmet binası vatandaş destek",
-        "belediye aile destek paketi",
+    "mersin_belediye": [
+        "Mersin Büyükşehir Belediyesi Halk Kart yardım",
+        "Tarsus Akdeniz Toroslar Belediyesi sosyal yardım",
+        "Yenişehir Mezitli Belediyesi sosyal destek",
+        "Mersin belediye gıda eğitim yardımı",
     ],
-    "kirtasiye_egitim": [
-        "kırtasiye yardımı okul malzemeleri öğrenci",
-        "Milli Eğitim Bakanlığı öğrenciler sınıf ders",
-        "KYK burs eğitim desteği üniversite öğrencileri",
-        "okul çantası defter kalem kırtasiye",
+    "izmir_belediye": [
+        "İzmir Büyükşehir Belediyesi sosyal yardım",
+        "Buca Karabağlar Bornova Belediyesi yardım",
+        "Konak Karşıyaka Bayraklı Belediyesi sosyal destek",
+        "İzmir belediye dayanışma gıda yardımı",
     ],
-    "erzak_gida": [
-        "belediye gıda yardım kolisi dağıtımı",
-        "Kızılay SYDV erzak paketi gıda yardımı",
-        "sosyal market gıda desteği",
-        "ramazan kışlık erzak kolisi yardımı",
+    "aydin_belediye": [
+        "Aydın Büyükşehir Belediyesi sosyal yardım",
+        "Efeler Nazilli Söke Belediyesi sosyal destek",
+        "Kuşadası Didim Belediyesi yardım paketi",
+        "Aydın belediye gıda emekli desteği",
     ],
-    "kiyafet_yakacak": [
-        "doğalgaz tüketim desteği kombi fatura",
-        "Aile Bakanlığı doğalgaz ısınma yardımı",
-        "kışlık yakacak kömür yardımı dağıtımı",
-        "doğalgaz sayacı kalorifer peteği",
+    "bursa_belediye": [
+        "Bursa Büyükşehir Belediyesi sosyal yardım",
+        "Osmangazi Yıldırım Nilüfer Belediyesi yardım",
+        "İnegöl Gemlik Belediyesi sosyal destek",
+        "Bursa belediye erzak emekli öğrenci desteği",
     ],
-    "kredi_banka": [
-        "Ziraat Bankası Halkbank Vakıfbank kredi",
-        "kamu bankaları ihtiyaç konut kredisi",
-        "Merkez Bankası BDDK bankacılık kredi",
-        "banka şubesi kredi başvurusu",
+    "istanbul_belediye": [
+        "İstanbul Büyükşehir Belediyesi İBB sosyal yardım",
+        "Üsküdar Ümraniye Pendik Esenyurt Belediyesi yardım",
+        "Bağcılar Küçükçekmece Fatih Belediyesi sosyal destek",
+        "İstanbul belediye sosyal destek kartı",
+    ],
+    "ankara_belediye": [
+        "Ankara Büyükşehir Belediyesi Başkent Kart yardım",
+        "Çankaya Keçiören Yenimahalle Belediyesi sosyal yardım",
+        "Mamak Sincan Etimesgut Altındağ Belediyesi destek",
+        "Ankara belediye sosyal yardım paketi",
+    ],
+    "antalya_belediye": [
+        "Antalya Büyükşehir Belediyesi sosyal yardım",
+        "Kepez Muratpaşa Konyaaltı Belediyesi sosyal destek",
+        "Alanya Manavgat Serik Belediyesi yardım",
+        "Antalya belediye gıda eğitim desteği",
     ],
 }
 
