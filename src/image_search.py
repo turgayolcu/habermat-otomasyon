@@ -1,9 +1,8 @@
 """
-Habermat.com - Gerçek Haber ve Çağrışım Görselleri Arama Motoru
-Chrome/Edge Headless tarayıcı üzerinden gerçek zamanlı görsel araması yaparak:
-- WordPress Kapak Görseli (1200x675) için 1 adet üzerinde yazı olmayan gerçek haber/konu fotoğrafı
-- Instagram Reels Videosu (1080x1920) için en az 4 adet birbirinden farklı sahneye sahip gerçek fotoğraf
-indirir ve doğrular.
+Habermat.com - Gerçek Haber ve Türk Lirası Görsel Motoru
+- Yabancı alan adlarını (.com ABD/İngiltere siteleri: pcmag, periodic table, gannett vb.) %100 engeller.
+- Doğrulanmış yerel Gerçek Türk Lirası (200 TL / 100 TL banknot) fotoğraflarını (`assets/turkish_lira/`)
+  ve yalnızca güvenilir Türkiye (.tr) kaynaklı gerçek fotoğrafları kullanır.
 """
 
 import hashlib
@@ -15,11 +14,16 @@ import re
 import shutil
 import subprocess
 import urllib.parse
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional, Set
 
 import requests
 from PIL import Image
+
+TR_TZ = timezone(timedelta(hours=3))
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+LOCAL_TL_DIR = PROJECT_ROOT / "assets" / "turkish_lira"
 
 HEADERS = {
     "User-Agent": (
@@ -30,7 +34,28 @@ HEADERS = {
     "Accept-Language": "tr-TR,tr;q=0.9",
 }
 
-# Filigranlı stok siteleri, yabancı stok siteleri (Pexels/Unsplash) ve fotoğrafın üzerine kendi manşet yazısını basan siteleri engelle
+# Yalnızca Türkiye (.tr) uzantılı veya resmi Türk kurum/haber CDN'lerinden görsel kabul et
+# Böylece GitHub Actions (ABD sunucusu) üzerinden Bing araması yapıldığında pcmag (Amazon Prime),
+# periodic.png (Periyodik Tablo) veya gannett (Prens Harry) gibi yabancı görseller ASLA giremez.
+ALLOWED_TURKISH_DOMAINS = (
+    ".gov.tr",
+    ".bel.tr",
+    ".edu.tr",
+    ".org.tr",
+    ".com.tr",
+    ".net.tr",
+    "aa.com.tr",
+    "trthaber.com",
+    "tcmb.gov.tr",
+    "toki.gov.tr",
+    "aile.gov.tr",
+    "ziraatbank.com.tr",
+    "halkbank.com.tr",
+    "vakifbank.com.tr",
+    "ptt.gov.tr",
+)
+
+# Fotoğrafın üzerine devasa manşet yazısı/logo basan veya stok filigranlı siteleri engelle
 BLOCKED_IMAGE_DOMAINS = (
     "pexels.com",
     "unsplash.com",
@@ -50,9 +75,11 @@ BLOCKED_IMAGE_DOMAINS = (
     "logowik.com",
     "freelogovectors.net",
     "logovector.net",
-    "biblicallifelessons",
-    "wallpaperaccess",
-    "craiggoodwinphoto",
+    "pcmag.com",
+    "ncag.info",
+    "gannett-cdn.com",
+    "radiologykey.com",
+    "plex.tv",
     "devletodemeleri.com",
     "kamugundemi.com",
     "emlak365.com",
@@ -61,63 +88,61 @@ BLOCKED_IMAGE_DOMAINS = (
     "sabirgazetesi",
 )
 
-# Sorun yaşandığında veya ek sahne gerektiğinde her zaman gerçek Türk Parası (200 TL / 100 TL) kullanan garantili sorgular
 TURKISH_LIRA_FALLBACK_QUERIES: List[str] = [
-    "200 TL Türk Lirası banknot para destesi",
-    "Türk Lirası 200 TL ve 100 TL nakit para",
-    "200 Türk Lirası banknot yakın çekim",
-    "banka ATM 200 TL Türk Lirası para çekme",
+    "200 TL Türk Lirası banknot site:tr",
+    "Türk Lirası 200 TL 100 TL kağıt para site:tr",
+    "200 Türk Lirası destesi nakit para site:tr",
+    "ATM para çekme Türk Lirası 200 TL site:tr",
 ]
 
-# Her kategoride alakasız stok görsel çıkmasını önleyen, doğrudan konu veya Türk Lirası odaklı gerçek fotoğraf sorguları
 CATEGORY_ASSOCIATIVE_QUERIES: Dict[str, List[str]] = {
     "devlet_yardimlari": [
-        "200 TL Türk Lirası banknot nakit para destesi",
-        "PTT şubesi gişe vezne Türkiye",
-        "Türk Lirası 200 TL ve 100 TL banknot para",
-        "banka ATM 200 TL Türk Lirası para çeken el",
+        "200 TL Türk Lirası banknot site:tr",
+        "Türk Lirası 200 TL ve 100 TL nakit para site:tr",
+        "PTT şubesi gişe vezne site:tr",
+        "ATM 200 TL Türk Lirası para çekme site:tr",
     ],
     "emeklilik": [
-        "200 TL Türk Lirası banknot para sayma",
-        "banka ATM nakit para çeken el Türk Lirası",
-        "Türk Lirası 200 TL ve 100 TL banknot destesi",
-        "Ziraat Bankası Halkbank Vakıfbank ATM Türk Lirası",
+        "200 TL Türk Lirası banknot para sayma site:tr",
+        "ATM nakit para çekme Türk Lirası site:tr",
+        "Türk Lirası 200 TL ve 100 TL banknot destesi site:tr",
+        "Ziraat Bankası ATM Türk Lirası site:tr",
     ],
     "toki_konut": [
-        "TOKİ toplu konut apartman binaları Türkiye",
-        "TOKİ sosyal konut projesi binalar",
-        "200 TL Türk Lirası banknot para destesi",
-        "Türk Lirası 200 TL ve 100 TL nakit para",
+        "TOKİ toplu konut binaları site:tr",
+        "TOKİ sosyal konut şantiye binalar site:tr",
+        "200 TL Türk Lirası banknot site:tr",
+        "Türk Lirası 200 TL ve 100 TL nakit para site:tr",
     ],
     "belediye_yardimlari": [
-        "200 TL Türk Lirası banknot nakit para destesi",
-        "Türk Lirası 200 TL ve 100 TL banknot para",
-        "banka ATM 200 TL Türk Lirası para çekme",
-        "PTT şubesi vezne Türkiye",
+        "200 TL Türk Lirası banknot site:tr",
+        "Türk Lirası 200 TL ve 100 TL nakit para site:tr",
+        "ATM 200 TL Türk Lirası para çekme site:tr",
+        "PTT şubesi vezne site:tr",
     ],
     "kirtasiye_egitim": [
-        "200 TL Türk Lirası banknot nakit para destesi",
-        "okul sıralarında ders çalışan öğrenciler Türkiye",
-        "Türk Lirası 200 TL ve 100 TL banknot para",
-        "banka ATM 200 TL Türk Lirası para çekme",
+        "200 TL Türk Lirası banknot site:tr",
+        "Türk Lirası 200 TL ve 100 TL nakit para site:tr",
+        "okul sınıf sıralar öğrenciler site:tr",
+        "ATM 200 TL Türk Lirası para çekme site:tr",
     ],
     "erzak_gida": [
-        "gıda yardım kolisi erzak paketi Türkiye",
-        "200 TL Türk Lirası banknot nakit para destesi",
-        "süpermarket alışveriş arabası gıda reyonu Türkiye",
-        "Türk Lirası 200 TL ve 100 TL banknot para",
+        "200 TL Türk Lirası banknot site:tr",
+        "gıda yardım kolisi erzak paketi site:tr",
+        "Türk Lirası 200 TL ve 100 TL nakit para site:tr",
+        "süpermarket gıda reyonu site:tr",
     ],
     "kiyafet_yakacak": [
-        "200 TL Türk Lirası banknot nakit para destesi",
-        "doğalgaz kombi ve kalorifer peteği",
-        "Türk Lirası 200 TL ve 100 TL banknot para",
-        "PTT şubesi gişe vezne Türkiye",
+        "200 TL Türk Lirası banknot site:tr",
+        "doğalgaz kombi kalorifer peteği site:tr",
+        "Türk Lirası 200 TL ve 100 TL nakit para site:tr",
+        "PTT şubesi gişe site:tr",
     ],
     "kredi_banka": [
-        "200 TL Türk Lirası banknot para destesi",
-        "Türk Lirası 200 TL ve 100 TL nakit para",
-        "banka ATM 200 TL Türk Lirası para çekme işlemi",
-        "200 Türk Lirası banknot para sayma",
+        "200 TL Türk Lirası banknot site:tr",
+        "Türk Lirası 200 TL ve 100 TL nakit para site:tr",
+        "ATM 200 TL Türk Lirası para çekme site:tr",
+        "200 Türk Lirası banknot para sayma site:tr",
     ],
 }
 
@@ -142,25 +167,38 @@ def _find_headless_browser() -> Optional[str]:
 
 
 def _is_clean_url(url: str) -> bool:
+    """
+    Yalnızca Türkiye (.tr) uzantılı alan adlarından gelen ve yasaklı listede olmayan
+    gerçek fotoğraf URL'lerini kabul eder. Yabancı (.com / .info / .tv) siteleri reddeder.
+    """
     low = url.lower()
     if any(bad in low for bad in BLOCKED_IMAGE_DOMAINS):
         return False
-    if any(ext in low for ext in [".svg", ".gif", "logo", "icon", "avatar", "sprite"]):
+    if any(ext in low for ext in [".svg", ".gif", "logo", "icon", "avatar", "sprite", "periodic"]):
+        return False
+    try:
+        host = urllib.parse.urlparse(low).hostname or ""
+    except Exception:
+        return False
+    if not any(host.endswith(dom) or dom in host for dom in ALLOWED_TURKISH_DOMAINS):
         return False
     return True
 
 
 def _search_images_via_headless_browser(query: str, max_results: int = 15) -> List[str]:
     """
-    Gerçek Chrome/Edge Headless tarayıcısı ile görsel araması yaparak
-    tam çözünürlüklü, temiz gerçek fotoğrafları çeker.
+    Gerçek Chrome/Edge Headless tarayıcısı ile Türkiye pazarında (setmkt=tr-TR)
+    görsel araması yaparak yalnızca doğrulanmış Türkiye (.tr) fotoğraflarını çeker.
     """
     browser = _find_headless_browser()
     if not browser:
         return []
 
     encoded = urllib.parse.quote(query)
-    url = f"https://www.bing.com/images/search?q={encoded}&qft=+filterui:photo-photo&FORM=IRFLTR"
+    url = (
+        f"https://www.bing.com/images/search?q={encoded}"
+        f"&qft=+filterui:photo-photo&setmkt=tr-TR&setlang=tr&cc=TR&FORM=IRFLTR"
+    )
 
     try:
         res = subprocess.run(
@@ -233,6 +271,52 @@ def _download_valid_image(
         return None
 
 
+def _load_verified_local_turkish_lira_photos(
+    work_dir: Path,
+    seen_hashes: Set[str],
+    start_index: int,
+    needed: int,
+    seed_text: str = "",
+) -> List[Path]:
+    """
+    Depo içindeki `assets/turkish_lira/` klasöründe bulunan, bizzat doğrulanmış
+    gerçek 200 TL ve 100 TL Türk Parası fotoğraflarını sırayla seçip çalışma klasörüne kopyalar.
+    """
+    results: List[Path] = []
+    if not LOCAL_TL_DIR.exists():
+        return results
+
+    local_files = sorted(LOCAL_TL_DIR.glob("tl_*.jpg"))
+    if not local_files:
+        return results
+
+    now_tr = datetime.now(TR_TZ)
+    seed_val = sum(ord(c) for c in (seed_text or "")) + now_tr.day * 24 + now_tr.hour
+    offset = seed_val % len(local_files)
+    rotated = local_files[offset:] + local_files[:offset]
+
+    for lf in rotated:
+        if len(results) >= needed:
+            break
+        try:
+            img = Image.open(lf)
+            thumb = img.convert("L").resize((16, 16))
+            img_hash = hashlib.md5(thumb.tobytes()).hexdigest()
+            if img_hash in seen_hashes:
+                continue
+            target_file = work_dir / f"real_photo_{start_index + len(results):02d}.jpg"
+            rgb_img = img.convert("RGB")
+            target_file.parent.mkdir(parents=True, exist_ok=True)
+            rgb_img.save(target_file, format="JPEG", quality=92)
+            seen_hashes.add(img_hash)
+            results.append(target_file)
+            print(f"      [DOĞRULANMIŞ TÜRK PARASI FOTOĞRAFI #{start_index + len(results)}] -> {lf.name}")
+        except Exception:
+            continue
+
+    return results
+
+
 def fetch_news_images(
     news_title: str,
     category: dict,
@@ -241,69 +325,51 @@ def fetch_news_images(
     min_count: int = 4,
 ) -> List[Path]:
     """
-    Haberle doğrudan alakalı fotoğrafları indirir; eğer alakasız sorgu üretilirse veya
-    herhangi bir sahnede görsel bulunamazsa doğrudan gerçek Türk Lirası (200 TL / 100 TL)
-    banknot fotoğraflarını kullanır.
+    1. Kapak fotoğrafı (#1) ve ana sahneler için doğrudan doğrulanmış gerçek Türk Lirası
+       (200 TL / 100 TL banknot) fotoğraflarını (`assets/turkish_lira/`) ve yalnızca `.tr`
+       uzantılı güvenilir Türkiye görsellerini kullanır.
+    2. Yabancı sitelerden (pcmag, periodic table, gannett vb.) alakasız görsel gelmesini %100 engeller.
     """
     work_dir.mkdir(parents=True, exist_ok=True)
     cat_id = category.get("id", "devlet_yardimlari")
-
-    assoc_list = CATEGORY_ASSOCIATIVE_QUERIES.get(cat_id, CATEGORY_ASSOCIATIVE_QUERIES["devlet_yardimlari"])
-
-    # Alakasız stok fotoğraf getirebilen jenerik kelimeleri engelle
-    vague_terms = ("telefon", "ekran", "mobil", "insan", "aile", "çift", "park", "yürüyüş", "mutlu", "evde", "masa")
-
-    queries: List[str] = []
-    if news_title and len(news_title.strip()) > 12:
-        queries.append(f"{news_title.strip()[:55]} Türkiye")
-
-    if ai_visual_queries:
-        for q in ai_visual_queries:
-            q_clean = (q or "").strip()
-            if q_clean and not any(vt in q_clean.lower() for vt in vague_terms):
-                if "türkiye" not in q_clean.lower() and "tl" not in q_clean.lower() and "lira" not in q_clean.lower():
-                    q_clean = f"{q_clean} Türkiye"
-                if q_clean not in queries:
-                    queries.append(q_clean)
-
-    for q in assoc_list:
-        if q not in queries:
-            queries.append(q)
-
-    for q in TURKISH_LIRA_FALLBACK_QUERIES:
-        if q not in queries:
-            queries.append(q)
-
     downloaded: List[Path] = []
     seen_hashes: Set[str] = set()
 
-    # 1. Tur: Her farklı sorgudan 1 adet gerçek fotoğraf indir
-    for q in queries:
-        if len(downloaded) >= min_count:
-            break
-
-        candidate_urls = _search_images_via_headless_browser(q, max_results=14)
-        for url in candidate_urls:
+    # 1. ÖNCE KAPAK GÖRSELİ (FOTOĞRAF #1) İÇİN DOĞRUDAN DOĞRULANMIŞ GERÇEK TÜRK PARASI (200 TL / 100 TL) KULLAN
+    # (Yalnızca TOKİ konut kategorisinde önce .tr uzantılı gerçek TOKİ konut fotoğrafı aranır, bulunamazsa yine Türk Parası kullanılır)
+    if cat_id == "toki_konut":
+        toki_urls = _search_images_via_headless_browser("TOKİ toplu konut binaları site:tr", max_results=12)
+        for url in toki_urls:
             target_file = work_dir / f"real_photo_{len(downloaded):02d}.jpg"
             saved = _download_valid_image(url, target_file, seen_hashes)
             if saved:
-                print(f"      [GERÇEK FOTOĞRAF #{len(downloaded)+1}] Sahne: '{q[:42]}' -> {url[:68]}")
+                print(f"      [GERÇEK TOKİ FOTOĞRAFI #1] -> {url[:68]}")
                 downloaded.append(saved)
                 break
 
-    # 2. Tur: Eksik kalırsa doğrudan gerçek Türk Parası (200 TL / 100 TL banknot) fotoğraflarıyla tamamla
+    # Kapak görseli ve ana sahneleri doğrulanmış yerel Türk Parası (200 TL / 100 TL) havuzundan doldur
+    local_tl_photos = _load_verified_local_turkish_lira_photos(
+        work_dir=work_dir,
+        seen_hashes=seen_hashes,
+        start_index=len(downloaded),
+        needed=min_count - len(downloaded),
+        seed_text=news_title,
+    )
+    downloaded.extend(local_tl_photos)
+
+    # Eğer hala eksik kalırsa yalnızca .tr uzantılı Türk Lirası sorgularıyla tamamla
     if len(downloaded) < min_count:
         for tl_q in TURKISH_LIRA_FALLBACK_QUERIES:
             if len(downloaded) >= min_count:
                 break
-            extra_urls = _search_images_via_headless_browser(tl_q, max_results=20)
+            extra_urls = _search_images_via_headless_browser(tl_q, max_results=15)
             for url in extra_urls:
                 if len(downloaded) >= min_count:
                     break
                 target_file = work_dir / f"real_photo_{len(downloaded):02d}.jpg"
                 saved = _download_valid_image(url, target_file, seen_hashes)
                 if saved:
-                    print(f"      [TÜRK PARASI YEDEK FOTOĞRAF #{len(downloaded)+1}] -> {url[:68]}")
+                    print(f"      [TÜRK PARASI EK FOTOĞRAF #{len(downloaded)+1}] -> {url[:68]}")
                     downloaded.append(saved)
 
     return downloaded
