@@ -352,11 +352,11 @@ def fetch_news_images(
             if saved:
                 print(f"      [TÜRKİYE HABER GÖRSELİ #{len(downloaded)+1}] Anahtar Kelime: '{kw_q[:40]}' -> {u[:68]}")
                 downloaded.append(saved)
-                break
 
-    # 3. ADIM: Hala eksik slayt varsa aynı anahtar kelimelerle `.tr` uzantılı Türkiye sitelerinden (`site:tr`) tamamla
+    # 3. ADIM: Hala eksik slayt varsa kategori konu sorgularıyla `.tr` uzantılı Türkiye sitelerinden (`site:tr`) tamamla
     if len(downloaded) < min_count:
-        for kw_q in keyword_queries:
+        cat_queries = CATEGORY_TOPIC_QUERIES.get(category.get("id", "devlet_yardimlari"), [])
+        for kw_q in cat_queries:
             if len(downloaded) >= min_count:
                 break
             tr_web_imgs = _search_turkish_web_images(kw_q, max_results=10)

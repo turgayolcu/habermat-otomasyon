@@ -68,6 +68,15 @@ def save_to_history(
         json.dump(history, f, ensure_ascii=False, indent=2)
 
 
+REQUIRED_AID_KEYWORDS = (
+    "yardım", "destek", "ödeme", "başvuru", "emekli", "maaş", "ikramiye",
+    "promosyon", "kredi", "toki", "konut", "kura", "belediye", "burs",
+    "kırtasiye", "öğrenci", "erzak", "gıda", "koli", "market", "doğalgaz",
+    "yakacak", "kömür", "fatura", "aile", "bakanlık", "bakanlığı", "e-devlet",
+    "sed", "sydv", "ptt", "hibe", "nakit", "nakdi", "sosyal", "dar gelir",
+)
+
+
 def is_already_published(title: str, history: dict) -> bool:
     norm_new = _normalize_title(title).lower()
     # Yurt dışı insani yardım haberlerini ve eski yıllara (2018-2025) ait arşiv haberlerini atla
@@ -75,8 +84,13 @@ def is_already_published(title: str, history: dict) -> bool:
         "bosna", "gazze", "filistin", "suriye", "lübnan", "sudan",
         "somali", "afrika", "yemen", "afganistan", "ukrayna", "pakistan",
         "2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025",
+        "villa", "yüzen ev", "magazin", "ünlü", "futbol", "transfer",
     ]
     if any(fk in norm_new for fk in foreign_keywords):
+        return True
+
+    # Haberin gerçekten sosyal yardım / destek / ekonomi gündemiyle ilgili olduğundan emin ol
+    if not any(rk in norm_new for rk in REQUIRED_AID_KEYWORDS):
         return True
 
     fp = _title_fingerprint(title)
