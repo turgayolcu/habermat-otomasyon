@@ -178,10 +178,11 @@ def _extract_topic_keyword_queries(news_title: str, category: dict) -> List[str]
     return queries
 
 
-def _extract_images_from_turkish_article(article_url: str, max_imgs: int = 3) -> List[str]:
+def _extract_images_from_turkish_article(article_url: str, max_imgs: int = 1) -> List[str]:
     """
     Türkiye'deki bir haber makalesinin (`source_link` veya Bing News TR sonucu)
-    hem ana kapak fotoğrafını (`og:image` / `twitter:image`) hem de haber içi gerçek fotoğraflarını çeker.
+    yalnızca ana kapak fotoğrafını (`og:image` / `twitter:image`) çeker.
+    Yan sütundaki 'Önerilen Haberler' küçük resimlerini asla almaz.
     """
     found: List[str] = []
     if not article_url or not article_url.startswith("http"):
@@ -195,7 +196,6 @@ def _extract_images_from_turkish_article(article_url: str, max_imgs: int = 3) ->
             return found
         soup = BeautifulSoup(resp.content, "html.parser")
 
-        # 1. og:image ve twitter:image
         for meta in [
             soup.find("meta", property="og:image"),
             soup.find("meta", attrs={"name": "twitter:image"}),
@@ -205,23 +205,8 @@ def _extract_images_from_turkish_article(article_url: str, max_imgs: int = 3) ->
                 img_u = urllib.parse.urljoin(article_url, meta["content"].strip())
                 if _is_clean_url(img_u) and img_u not in found:
                     found.append(img_u)
-
-        # 2. Makale gövdesindeki (`article` veya `main`) yüksek çözünürlüklü `<img>` etiketleri
-        container = soup.find("article") or soup.find("main") or soup
-        for img_tag in container.find_all("img"):
-            src = (
-                img_tag.get("data-src")
-                or img_tag.get("data-original")
-                or img_tag.get("src")
-                or ""
-            ).strip()
-            if not src or src.startswith("data:"):
-                continue
-            full_u = urllib.parse.urljoin(article_url, src)
-            if _is_clean_url(full_u) and full_u not in found:
-                found.append(full_u)
-            if len(found) >= max_imgs:
-                break
+                    if len(found) >= max_imgs:
+                        break
     except Exception:
         pass
 

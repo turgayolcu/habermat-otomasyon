@@ -70,10 +70,11 @@ def save_to_history(
 
 def is_already_published(title: str, history: dict) -> bool:
     norm_new = _normalize_title(title).lower()
-    # Yurt dışı insani yardım haberlerini atla (Sadece Türkiye içi vatandaş başvuruları seçilsin)
+    # Yurt dışı insani yardım haberlerini ve eski yıllara (2018-2025) ait arşiv haberlerini atla
     foreign_keywords = [
         "bosna", "gazze", "filistin", "suriye", "lübnan", "sudan",
         "somali", "afrika", "yemen", "afganistan", "ukrayna", "pakistan",
+        "2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025",
     ]
     if any(fk in norm_new for fk in foreign_keywords):
         return True
