@@ -47,34 +47,36 @@ class WordPressPublisher:
         if self._rest_nonce:
             return {"X-WP-Nonce": self._rest_nonce}
 
-        # 1. Önce wp-login.php üzerinden normal kullanıcı adı ve şifre ile oturum açmayı dene
-        try:
-            login_url = f"{self.base_url}/wp-login.php"
-            self.session.get(login_url, timeout=15)
-            login_data = {
-                "log": self.username,
-                "pwd": self.password,
-                "wp-submit": "Giriş",
-                "redirect_to": f"{self.base_url}/wp-admin/",
-                "testcookie": "1",
-            }
-            resp = self.session.post(
-                login_url,
-                data=login_data,
-                cookies={"wordpress_test_cookie": "WP Cookie check"},
-                timeout=20,
-                allow_redirects=True,
-            )
-            # wp-admin/post-new.php veya admin-ajax.php üzerinden REST API Nonce değerini al
-            if any("wordpress_logged_in" in c.name for c in self.session.cookies):
-                self._authenticated_cookie = True
-                admin_resp = self.session.get(f"{self.base_url}/wp-admin/post-new.php", timeout=20)
-                m = re.search(r'wpApiSettings\s*=\s*\{[^}]*"nonce"\s*:\s*"([a-zA-Z0-9]+)"', admin_resp.text)
-                if m:
-                    self._rest_nonce = m.group(1)
-                    return {"X-WP-Nonce": self._rest_nonce}
-        except Exception as exc:
-            print(f"[BİLGİ] WP Cookie girişi denemesi: {exc}")
+        # 1. Önce wp-login.php üzerinden normal kullanıcı adı ve şifre ile oturum açmayı dene (3 deneme)
+        import time
+        for attempt in range(3):
+            try:
+                login_url = f"{self.base_url}/wp-login.php"
+                self.session.get(login_url, timeout=15)
+                login_data = {
+                    "log": self.username,
+                    "pwd": self.password,
+                    "wp-submit": "Giriş",
+                    "redirect_to": f"{self.base_url}/wp-admin/",
+                    "testcookie": "1",
+                }
+                self.session.post(
+                    login_url,
+                    data=login_data,
+                    cookies={"wordpress_test_cookie": "WP Cookie check"},
+                    timeout=20,
+                    allow_redirects=True,
+                )
+                if any("wordpress_logged_in" in c.name for c in self.session.cookies):
+                    self._authenticated_cookie = True
+                    admin_resp = self.session.get(f"{self.base_url}/wp-admin/post-new.php", timeout=20)
+                    m = re.search(r'wpApiSettings\s*=\s*\{[^}]*"nonce"\s*:\s*"([a-zA-Z0-9]+)"', admin_resp.text)
+                    if m:
+                        self._rest_nonce = m.group(1)
+                        return {"X-WP-Nonce": self._rest_nonce}
+            except Exception as exc:
+                print(f"[BİLGİ] WP Cookie girişi denemesi ({attempt+1}/3): {exc}")
+                time.sleep(2)
 
         # 2. Basic Auth (Application Password veya Basic Auth eklentisi varsa)
         token = base64.b64encode(f"{self.username}:{self.password}".encode("utf-8")).decode("utf-8")
