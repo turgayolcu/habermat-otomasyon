@@ -151,14 +151,15 @@ def main() -> None:
         shutil.rmtree(WORK_DIR, ignore_errors=True)
     WORK_DIR.mkdir(parents=True, exist_ok=True)
 
-    # 4. Google ve Türk haber kaynaklarından gerçek fotoğrafları indir (Kapak + en az 3-4 Reels slayt fotoğrafı)
-    print("[4/6] Google Görseller'den haberle alakalı gerçek fotoğraflar indiriliyor...")
+    # 4. Türkiye haber kaynaklarından konu anahtar kelimelerine göre gerçek fotoğrafları indir
+    print("[4/6] Türkiye haber kaynaklarından konuyla alakalı gerçek fotoğraflar indiriliyor...")
     real_photos = fetch_news_images(
         news_title=news_item["raw_title"],
         category=category,
         ai_visual_queries=package.get("visual_queries"),
         work_dir=WORK_DIR / "photos",
         min_count=4,
+        source_link=news_item.get("source_link", ""),
     )
     print(f"      -> Toplam {len(real_photos)} adet gerçek haber/çağrışım fotoğrafı hazırlandı.")
 
