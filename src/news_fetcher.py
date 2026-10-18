@@ -24,10 +24,10 @@ HISTORY_FILE = Path(__file__).resolve().parent.parent / "data" / "published_hist
 REQUIRED_AID_KEYWORDS = (
     "yardım", "destek", "ödeme", "başvuru", "emekli", "maaş", "ikramiye",
     "burs", "kırtasiye", "öğrenci", "erzak", "gıda", "koli", "market",
-    "doğalgaz", "yakacak", "kömür", "fatura", "sosyal", "dar gelir",
+    "doğalgaz", "yakacak", "kömür", "fatura", "dar gelir",
     "halk kart", "başkent kart", "sosyal kart", "destek kart", "süt",
     "bebek", "çeyiz", "evlilik", "nakdi", "nakit", "pazar", "ekmek",
-    "beslenme", "ulaşım", "kantin", "kira", "iyilik", "dayanışma",
+    "sıcak yemek", "beslenme", "ulaşım", "kantin", "kira", "vatandaş", "aile",
 )
 
 FOREIGN_AND_OFFTOPIC_BLOCKLIST = (
@@ -37,6 +37,10 @@ FOREIGN_AND_OFFTOPIC_BLOCKLIST = (
     "2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025",
     "villa", "yüzen ev", "magazin", "ünlü", "futbol", "transfer",
     "cinayet", "kaza", "tutuklandı", "gözaltı", "deprem", "yangın",
+    "ziyaret", "değerlendirildi", "denetim", "zabıta", "mühür", "imha",
+    "bozulmuş", "tarihi geçmiş", "arkeoloji", "amatör spor", "kulüb", "kulüp",
+    "milli takım", "sokak hayvan", "hayvansever", "farkındalık", "şenlik",
+    "festival", "konser", "tiyatro", "turnuva", "asfalt", "ilaçlama",
 )
 
 
@@ -281,9 +285,17 @@ def fetch_fresh_news_for_category(category: dict) -> Dict[str, str]:
                 "is_fallback": False,
             }
 
-    # 2. Yedek olarak Google News Türkiye üzerinden il/ilçe belediye yardım haberlerini tara
-    for query in dynamic_queries[:8]:
-        encoded_q = urllib.parse.quote(f"{query} when:7d")
+    # 2. Her İlçe ve Büyükşehir Belediyesini tek tek Google News Türkiye üzerinden vatandaş yardımı sorgusuyla tara
+    muni_aid_queries: List[str] = []
+    for dist in rotated_districts:
+        muni_aid_queries.append(
+            f'"{dist}" ("sosyal yardım" OR "eğitim desteği" OR "burs" OR "emekli" OR "gıda" OR "erzak" OR "kırtasiye" OR "nakdi" OR "sosyal market" OR "halk kart" OR "sıcak yemek" OR "ekmek" OR "başvuru" OR "öğrencilere" OR "ailelere")'
+        )
+    for q in dynamic_queries[:4]:
+        muni_aid_queries.append(q)
+
+    for query in muni_aid_queries:
+        encoded_q = urllib.parse.quote(query)
         rss_url = f"https://news.google.com/rss/search?q={encoded_q}&hl=tr&gl=TR&ceid=TR:tr"
 
         try:
@@ -291,7 +303,7 @@ def fetch_fresh_news_for_category(category: dict) -> Dict[str, str]:
             if resp.status_code != 200:
                 continue
             feed = feedparser.parse(resp.content)
-            for entry in feed.entries[:10]:
+            for entry in feed.entries[:15]:
                 raw_title = entry.get("title", "")
                 clean_title = _normalize_title(raw_title)
                 if not clean_title or len(clean_title) < 20:
@@ -322,7 +334,7 @@ def fetch_fresh_news_for_category(category: dict) -> Dict[str, str]:
                     "is_fallback": False,
                 }
         except Exception as exc:
-            print(f"[UYARI] RSS sorgusu başarısız ({query}): {exc}")
+            print(f"[UYARI] RSS sorgusu başarısız ({query[:40]}): {exc}")
 
     # 3. Sıradaki İlçe Belediyesinin resmi sosyal yardım programlarını doğrudan web üzerinden araştır
     aid_types = [
