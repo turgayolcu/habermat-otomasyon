@@ -67,7 +67,15 @@ class InstagramReelsPublisher:
             cl.login(self.ig_username, self.ig_password)
             cl.dump_settings(SESSION_FILE)
 
-        media = cl.clip_upload(path=video_path, caption=caption)
+        import subprocess
+        thumb_path = video_path.with_suffix(".thumb.jpg")
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", str(video_path), "-frames:v", "1", "-q:v", "2", str(thumb_path)],
+            check=True,
+            capture_output=True,
+        )
+
+        media = cl.clip_upload(path=video_path, caption=caption, thumbnail=thumb_path)
         try:
             cl.dump_settings(SESSION_FILE)
         except Exception:
