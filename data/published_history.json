@@ -382,14 +382,25 @@
       "wp_url": "https://www.habermat.com/izmir-buyuksehir-belediyesinden-her-gun-42-bin-kisiye-sicak-yemek/",
       "ig_id": "published",
       "published_at": "2026-10-19T11:03:55.261910+03:00"
+    },
+    {
+      "fingerprint": "303ceb1cf6043b80",
+      "title": "Efeler Belediyesi’nin Sosyal Destek Giyim Noktası 2 haftada 80 haneye ulaştı",
+      "category_id": "aydin_belediye",
+      "source_url": "https://www.iha.com.tr/aydin-haberleri/efeler-belediyesinin-sosyal-destek-giyim-noktasi-2-haftada-80-haneye-ulasti-388040653",
+      "wp_url": "https://www.habermat.com/efeler-belediyesinin-sosyal-destek-giyim-noktasi-2-haftada-80-haneye-ulasti/",
+      "ig_id": "published",
+      "published_at": "2026-10-19T12:05:07.489154+03:00"
     }
   ],
   "used_image_urls": [
-    "https://visitizmiryonetim.izmir.bel.tr/YuklenenDosyalar/Blog/1024/16052022_023557642_4_4_kemeralt¦-_.jpg",
-    "https://foto.sondakika.com/haber/2024/07/02/halk-kart-tan-yaklasik-9-bin-aile-faydalaniyo-17479183_amp.jpg"
+    "https://cdn.iha.com.tr/Contents/images/2026/03/06/20260305aw655393-0.jpg",
+    "https://foto.sondakika.com/haber/2024/07/02/halk-kart-tan-yaklasik-9-bin-aile-faydalaniyo-17479183_amp.jpg",
+    "https://visitizmiryonetim.izmir.bel.tr/YuklenenDosyalar/Blog/1024/16052022_023557642_4_4_kemeralt¦-_.jpg"
   ],
   "used_image_hashes": [
     "557b095f60930d4cc041c776bf7aa833",
-    "0c7b7ea8d79ea171ac895cc5192552a1"
+    "0c7b7ea8d79ea171ac895cc5192552a1",
+    "4ab4835d8516cd49a64a047ff078bff3"
   ]
 }
