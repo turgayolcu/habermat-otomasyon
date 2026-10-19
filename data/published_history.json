@@ -373,12 +373,23 @@
       "wp_url": "https://www.habermat.com/mersin-buyuksehir-belediyesinin-halk-kart-uygulamasindan-9-bin-aile-faydala/",
       "ig_id": "published",
       "published_at": "2026-10-19T10:54:31.487930+03:00"
+    },
+    {
+      "fingerprint": "eaeb4618c76f3ea9",
+      "title": "İzmir Büyükşehir Belediyesi’nden her gün 42 bin kişiye sıcak yemek",
+      "category_id": "izmir_belediye",
+      "source_url": "https://news.google.com/rss/articles/CBMikAFBVV95cUxQd0k0dGU2MmpqcHhlLTY2Ny10MTN1d0p6TDc0ZHd6NEJrLVdlcVduUXQyb040cmp4NnQxVDhmc005T1FFaTdqLUlhSXBzZlVQUldGMGM1cng4ZGpCTXVrdFdjckM4RUJiendaS3VZTTZBYnVaWm9QdW5FaGR2M01QWFR5cU4zMGU0eEN2dThhYTbSAZYBQVVfeXFMUFE4X1RNVjRaeEhpOEUxVkRrTFQyb2MzZVp6S1JEUERLUExUb1NpalotTlFuS3dzQkpTZ2MzSFRCcUpwT2pOVnFsakZja1RjM2phZ1ZEUXFUemt0U1RCMEd1X010Y2g1Y19ocTdBZVc2WUM4UkZaeWRoMmdWNWZoZ3I3Z2FkN21tVFFOWVFHQUYweXEzZHZR?oc=5",
+      "wp_url": "https://www.habermat.com/izmir-buyuksehir-belediyesinden-her-gun-42-bin-kisiye-sicak-yemek/",
+      "ig_id": "published",
+      "published_at": "2026-10-19T11:03:55.261910+03:00"
     }
   ],
   "used_image_urls": [
+    "https://visitizmiryonetim.izmir.bel.tr/YuklenenDosyalar/Blog/1024/16052022_023557642_4_4_kemeralt¦-_.jpg",
     "https://foto.sondakika.com/haber/2024/07/02/halk-kart-tan-yaklasik-9-bin-aile-faydalaniyo-17479183_amp.jpg"
   ],
   "used_image_hashes": [
-    "557b095f60930d4cc041c776bf7aa833"
+    "557b095f60930d4cc041c776bf7aa833",
+    "0c7b7ea8d79ea171ac895cc5192552a1"
   ]
 }
