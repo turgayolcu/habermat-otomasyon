@@ -19,8 +19,13 @@ from typing import Any, Dict, List, Optional, Tuple
 import edge_tts
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
-# iddaaliyiz.tv'de kullanılan %100 Doğal Erkek Türkçe Spiker Sesi (tr-TR-AhmetNeural)
-PRIMARY_TR_VOICE = os.environ.get("TTS_VOICE", "tr-TR-AhmetNeural")
+# iddaaliyiz.tv'de (motion_reels.py) kullanılan %100 Doğal Erkek Spiker Sesleri
+PRIMARY_TR_VOICE = os.environ.get("TTS_VOICE", "en-US-BrianMultilingualNeural")
+CANDIDATE_MALE_VOICES = [
+    PRIMARY_TR_VOICE,
+    "en-US-AndrewMultilingualNeural",
+    "tr-TR-AhmetNeural",
+]
 VOICE_RATE = os.environ.get("TTS_RATE", "+0%")  # Tam doğal spiker konuşma hızı
 
 # Renk Paleti (Kırmızı - Beyaz - Koyu Lacivert Haber TV Teması)
@@ -645,124 +650,97 @@ async def _synthesize_full_script_single_stream(
         return seg_durs, [[] for _ in segments]
 
     last_err = None
-    for attempt in range(10):
-        try:
-            # iddaaliyiz.tv motion_reels.py generate_tts ile birebir aynı çağrı (voice="tr-TR-AhmetNeural")
-            communicate = edge_tts.Communicate(
-                text=full_phonetic_text,
-                voice=PRIMARY_TR_VOICE,
-                boundary="WordBoundary",
-            )
-            all_word_events: List[Dict[str, Any]] = []
-            audio_bytes = bytearray()
+    for voice_name in CANDIDATE_MALE_VOICES:
+        for attempt in range(4):
+            try:
+                # iddaaliyiz.tv (motion_reels.py) generate_tts ile birebir aynı erkek spiker sesleri
+                communicate = edge_tts.Communicate(
+                    text=full_phonetic_text,
+                    voice=voice_name,
+                    boundary="WordBoundary",
+                )
+                all_word_events: List[Dict[str, Any]] = []
+                audio_bytes = bytearray()
 
-            async for chunk in communicate.stream():
-                if chunk["type"] == "audio":
-                    audio_bytes.extend(chunk["data"])
-                elif chunk["type"] == "WordBoundary":
-                    all_word_events.append(
-                        {
-                            "text": chunk["text"],
-                            "offset_sec": chunk["offset"] / 10_000_000.0,
-                            "duration_sec": chunk["duration"] / 10_000_000.0,
-                        }
-                    )
-
-            if len(audio_bytes) > 1000:
-                with open(out_mp3, "wb") as f:
-                    f.write(audio_bytes)
-
-                total_dur = _get_audio_duration_ffprobe(out_mp3)
-                if all_word_events:
-                    last_word_end = all_word_events[-1]["offset_sec"] + all_word_events[-1]["duration_sec"]
-                    trimmed_total = min(total_dur, last_word_end + 0.35)
-                else:
-                    trimmed_total = total_dur
-
-                seg_durations: List[float] = []
-                seg_word_events: List[List[Dict[str, Any]]] = []
-                total_expected_words = sum(clause_word_counts)
-                total_actual_events = len(all_word_events)
-
-                if total_actual_events >= len(segments):
-                    start_ev_idx = 0
-                    seg_start_times: List[float] = []
-                    seg_event_slices: List[List[Dict[str, Any]]] = []
-
-                    cum_expected = 0
-                    for idx, wc in enumerate(clause_word_counts):
-                        cum_expected += wc
-                        end_ev_idx = min(
-                            int(round(cum_expected * total_actual_events / total_expected_words)),
-                            total_actual_events,
-                        )
-                        if idx == len(clause_word_counts) - 1:
-                            end_ev_idx = total_actual_events
-                        ev_slice = all_word_events[start_ev_idx:end_ev_idx]
-                        if not ev_slice and start_ev_idx < total_actual_events:
-                            ev_slice = [all_word_events[start_ev_idx]]
-                        seg_event_slices.append(ev_slice)
-                        if idx == 0:
-                            seg_start_times.append(0.0)
-                        elif ev_slice:
-                            seg_start_times.append(ev_slice[0]["offset_sec"])
-                        else:
-                            seg_start_times.append(seg_start_times[-1] + 2.5)
-                        start_ev_idx = end_ev_idx
-
-                    for idx in range(len(segments)):
-                        s_t = seg_start_times[idx]
-                        e_t = seg_start_times[idx + 1] if idx < len(segments) - 1 else trimmed_total
-                        dur = max(0.8, e_t - s_t)
-                        seg_durations.append(dur)
-                        shifted_events = [
+                async for chunk in communicate.stream():
+                    if chunk["type"] == "audio":
+                        audio_bytes.extend(chunk["data"])
+                    elif chunk["type"] == "WordBoundary":
+                        all_word_events.append(
                             {
-                                "text": ev["text"],
-                                "offset_sec": max(0.0, ev["offset_sec"] - s_t),
-                                "duration_sec": ev["duration_sec"],
+                                "text": chunk["text"],
+                                "offset_sec": chunk["offset"] / 10_000_000.0,
+                                "duration_sec": chunk["duration"] / 10_000_000.0,
                             }
-                            for ev in seg_event_slices[idx]
-                        ]
-                        seg_word_events.append(shifted_events)
+                        )
 
-                    return seg_durations, seg_word_events
+                if len(audio_bytes) > 1000:
+                    print(f"      [TTS] Erkek spiker sesi ({voice_name}) ile seslendirildi.")
+                    with open(out_mp3, "wb") as f:
+                        f.write(audio_bytes)
 
-                seg_durs = [trimmed_total * (wc / total_expected_words) for wc in clause_word_counts]
-                return seg_durs, [[] for _ in segments]
-        except Exception as exc:
-            last_err = exc
-        await asyncio.sleep(1.0 + attempt * 0.4)
+                    total_dur = _get_audio_duration_ffprobe(out_mp3)
+                    if all_word_events:
+                        last_word_end = all_word_events[-1]["offset_sec"] + all_word_events[-1]["duration_sec"]
+                        trimmed_total = min(total_dur, last_word_end + 0.35)
+                    else:
+                        trimmed_total = total_dur
 
-    # Yedek: GitHub Actions IP'si Microsoft Edge TTS tarafından geçici kısıtlanırsa Google TTS üzerinden kesintisiz ses üret
-    try:
-        import urllib.parse
-        import requests as _req
-        seg_mp3s: List[Path] = []
-        seg_durs: List[float] = []
-        for idx, clause in enumerate(cleaned_clauses):
-            q_enc = urllib.parse.quote(clause[:195])
-            g_url = f"https://translate.googleapis.com/translate_tts?ie=UTF-8&tl=tr&client=gtx&q={q_enc}"
-            r_tts = _req.get(g_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=15)
-            if r_tts.status_code == 200 and len(r_tts.content) > 500:
-                p_part = out_mp3.parent / f"gtts_part_{idx}.mp3"
-                p_part.write_bytes(r_tts.content)
-                seg_mp3s.append(p_part)
-                seg_durs.append(_get_audio_duration_ffprobe(p_part))
-        if len(seg_mp3s) == len(cleaned_clauses):
-            concat_list = out_mp3.parent / "gtts_concat.txt"
-            with open(concat_list, "w", encoding="utf-8") as cf:
-                for sp in seg_mp3s:
-                    cf.write(f"file '{str(sp.resolve()).replace(chr(92), '/')}'\n")
-            subprocess.run(
-                ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(concat_list), "-c", "copy", str(out_mp3)],
-                check=True,
-                capture_output=True,
-            )
-            return seg_durs, [[] for _ in segments]
-    except Exception:
-        pass
+                    seg_durations: List[float] = []
+                    seg_word_events: List[List[Dict[str, Any]]] = []
+                    total_expected_words = sum(clause_word_counts)
+                    total_actual_events = len(all_word_events)
 
-    raise RuntimeError(f"Erkek spiker (tr-TR-AhmetNeural) seslendirmesi oluşturulamadı: {last_err}")
+                    if total_actual_events >= len(segments):
+                        start_ev_idx = 0
+                        seg_start_times: List[float] = []
+                        seg_event_slices: List[List[Dict[str, Any]]] = []
+
+                        cum_expected = 0
+                        for idx, wc in enumerate(clause_word_counts):
+                            cum_expected += wc
+                            end_ev_idx = min(
+                                int(round(cum_expected * total_actual_events / total_expected_words)),
+                                total_actual_events,
+                            )
+                            if idx == len(clause_word_counts) - 1:
+                                end_ev_idx = total_actual_events
+                            ev_slice = all_word_events[start_ev_idx:end_ev_idx]
+                            if not ev_slice and start_ev_idx < total_actual_events:
+                                ev_slice = [all_word_events[start_ev_idx]]
+                            seg_event_slices.append(ev_slice)
+                            if idx == 0:
+                                seg_start_times.append(0.0)
+                            elif ev_slice:
+                                seg_start_times.append(ev_slice[0]["offset_sec"])
+                            else:
+                                seg_start_times.append(seg_start_times[-1] + 2.5)
+                            start_ev_idx = end_ev_idx
+
+                        for idx in range(len(segments)):
+                            s_t = seg_start_times[idx]
+                            e_t = seg_start_times[idx + 1] if idx < len(segments) - 1 else trimmed_total
+                            dur = max(0.8, e_t - s_t)
+                            seg_durations.append(dur)
+                            shifted_events = [
+                                {
+                                    "text": ev["text"],
+                                    "offset_sec": max(0.0, ev["offset_sec"] - s_t),
+                                    "duration_sec": ev["duration_sec"],
+                                }
+                                for ev in seg_event_slices[idx]
+                            ]
+                            seg_word_events.append(shifted_events)
+
+                        return seg_durations, seg_word_events
+
+                    seg_durs = [trimmed_total * (wc / total_expected_words) for wc in clause_word_counts]
+                    return seg_durs, [[] for _ in segments]
+            except Exception as exc:
+                last_err = exc
+            await asyncio.sleep(0.6)
+
+    raise RuntimeError(f"Erkek spiker ({CANDIDATE_MALE_VOICES}) seslendirmesi oluşturulamadı: {last_err}")
 
 
 def _build_synced_subtitle_chunks(

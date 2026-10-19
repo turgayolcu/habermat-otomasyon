@@ -173,8 +173,8 @@ def main() -> None:
     with open(article_json_path, "w", encoding="utf-8") as f:
         json.dump(package, f, ensure_ascii=False, indent=2)
 
-    # 5. Gerçek Fotoğraflı Kapak Görseli ve Çoklu Slaytlı Reels Videosu Üretimi
-    print("[5/6] Gerçek fotoğraflı WordPress kapak görseli (1200x675) ve kadın spikerli Reels videosu (1080x1920) hazırlanıyor...")
+    # 5. Gerçek Fotoğraflı Kapak Görseli ve Erkek Spikerli Reels Videosu Üretimi
+    print("[5/6] Gerçek fotoğraflı WordPress kapak görseli (1200x675) ve erkek spikerli Reels videosu (1080x1920) hazırlanıyor...")
     generate_wp_featured_image(package, category, featured_img_path, real_photos=real_photos)
     generate_reels_video(package, category, WORK_DIR, reels_mp4_path, real_photos=real_photos)
     print(f"      -> Kapak Görseli Hazır: {featured_img_path}")
