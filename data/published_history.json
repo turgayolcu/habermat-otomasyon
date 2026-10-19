@@ -400,18 +400,29 @@
       "wp_url": "https://www.habermat.com/karacabey-belediyesi-ihtiyac-sahiplerine-yonelik-sosyal-destek-hizmetleri-s/",
       "ig_id": "published",
       "published_at": "2026-10-19T13:04:54.419332+03:00"
+    },
+    {
+      "fingerprint": "089afd5b49438e1d",
+      "title": "Şişli Belediyesi, Hatay'ın Arsuz ilçesinde Psikososyal Destek Merkezi açtı",
+      "category_id": "istanbul_belediye",
+      "source_url": "https://www.haberler.com/sisli-arsuz-psikososyal-destek-merkezi-torenle-hiz-16758054-haberi/",
+      "wp_url": "https://www.habermat.com/sisli-belediyesi-hatayin-arsuz-ilcesinde-psikososyal-destek-merkezi-acti/",
+      "ig_id": "published",
+      "published_at": "2026-10-19T14:05:11.845410+03:00"
     }
   ],
   "used_image_urls": [
     "https://visitizmiryonetim.izmir.bel.tr/YuklenenDosyalar/Blog/1024/16052022_023557642_4_4_kemeralt¦-_.jpg",
-    "https://cdn.iha.com.tr/Contents/images/2026/03/06/20260305aw655393-0.jpg",
+    "https://www.bursahakimiyet.com.tr/cdn/Xv_hNYtweH5V44lOkUR2ge8ALzw=/1200x630/webp/2026/10/08/bursa-da-ihtiyac-sahiplerine-13-farkli-destek-basvuru-sartlari-aciklandi-1791450603-716_large.webp",
     "https://foto.sondakika.com/haber/2024/07/02/halk-kart-tan-yaklasik-9-bin-aile-faydalaniyo-17479183_amp.jpg",
-    "https://www.bursahakimiyet.com.tr/cdn/Xv_hNYtweH5V44lOkUR2ge8ALzw=/1200x630/webp/2026/10/08/bursa-da-ihtiyac-sahiplerine-13-farkli-destek-basvuru-sartlari-aciklandi-1791450603-716_large.webp"
+    "https://cdn.iha.com.tr/Contents/images/2026/03/06/20260305aw655393-0.jpg",
+    "https://foto.sondakika.com/haber/2024/01/19/sisli-arsuz-psikososyal-destek-merkezi-torenl-16758046_amp.jpg"
   ],
   "used_image_hashes": [
-    "4ab4835d8516cd49a64a047ff078bff3",
-    "9c47836b2d6114047aaf907a5728fa6a",
     "0c7b7ea8d79ea171ac895cc5192552a1",
+    "1a5616a022c020262b7d07ac24fc913e",
+    "9c47836b2d6114047aaf907a5728fa6a",
+    "4ab4835d8516cd49a64a047ff078bff3",
     "557b095f60930d4cc041c776bf7aa833"
   ]
 }
