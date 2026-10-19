@@ -1,0 +1,73 @@
+name: Habermat 7/24 Bulut Saatlayıcısı (Cloud Clock)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */3 * * *'
+
+concurrency:
+  group: habermat-cloud-clock
+  cancel-in-progress: false
+
+jobs:
+  cloud-hourly-dispatcher:
+    runs-on: ubuntu-latest
+    timeout-minutes: 210
+
+    steps:
+      - name: 7/24 Dakika Hassasiyetli Bulut Tetikleyici (Bilgisayar Kapalıyken Çalışır)
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+          REPO: ${{ github.repository }}
+        run: |
+          python3 - << 'EOF'
+          import datetime
+          import time
+          import os
+          import urllib.request
+          import json
+
+          token = os.environ.get("GH_PAT", "").strip()
+          repo = os.environ.get("REPO", "turgayolcu/habermat-otomasyon")
+          tr_tz = datetime.timezone(datetime.timedelta(hours=3))
+
+          def trigger_workflow(wf_file: str) -> None:
+              url = f"https://api.github.com/repos/{repo}/actions/workflows/{wf_file}/dispatches"
+              data = json.dumps({"ref": "main"}).encode("utf-8")
+              req = urllib.request.Request(
+                  url,
+                  data=data,
+                  headers={
+                      "Authorization": f"Bearer {token}",
+                      "Accept": "application/vnd.github+json",
+                      "Content-Type": "application/json",
+                      "User-Agent": "habermat-cloud-clock",
+                  },
+                  method="POST",
+              )
+              try:
+                  with urllib.request.urlopen(req, timeout=20) as resp:
+                      print(f"[BULUT TETİKLEYİCİ] {wf_file} başarıyla tetiklendi (HTTP {resp.status}).", flush=True)
+              except Exception as exc:
+                  print(f"[UYARI] {wf_file} tetiklenemedi: {exc}", flush=True)
+
+          start_ts = time.time()
+          max_run_seconds = 175 * 60  # ~2 saat 55 dakika sonra nöbeti yeni bulut işçisine devret
+          triggered_hours = set()
+
+          print("[BAŞLADI] Habermat 7/24 Bulut Saatlayıcısı aktif (Bilgisayardan bağımsız)...", flush=True)
+          while (time.time() - start_ts) < max_run_seconds:
+              now_tr = datetime.datetime.now(tr_tz)
+              hour_key = now_tr.strftime("%Y-%m-%d-%H")
+              active_hour = (now_tr.hour == 0) or (7 <= now_tr.hour <= 23)
+
+              if active_hour and now_tr.minute in (0, 1) and hour_key not in triggered_hours:
+                  print(f"[SAAT BAŞI] Türkiye saati {now_tr.strftime('%H:%M:%S')} -> habermat_hourly.yml başlatılıyor...", flush=True)
+                  trigger_workflow("habermat_hourly.yml")
+                  triggered_hours.add(hour_key)
+
+              time.sleep(25)
+
+          print("[NÖBET DEVRİ] Bulut saatlayıcısı bir sonraki 3 saatlik nöbeti başlatıyor...", flush=True)
+          trigger_workflow("habermat_cloud_clock.yml")
+          EOF
