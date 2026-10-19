@@ -418,24 +418,35 @@
       "wp_url": "https://www.habermat.com/abbden-mehmetcige-destek-asker-cantalari-belediyeden/",
       "ig_id": "published",
       "published_at": "2026-10-19T15:11:41.930838+03:00"
+    },
+    {
+      "fingerprint": "c97c86a1b427e645",
+      "title": "Aksu'da ihtiyaç sahiplerine evde sağlık ve gıda desteği",
+      "category_id": "antalya_belediye",
+      "source_url": "https://news.google.com/rss/articles/CBMiiAFBVV95cUxPRHRWaWRDU3JyRTlaNmNwSHc2aEw5R1I5ZTY4eGw3NUhhRVBLYWNTZXgyYWVOaUZKaWpoSTJVUmNweGxLUXRzdjdrbzBHdWg2Y2dacGJ0MVZUQW1Ic0ZjdUgwaVJmUDRXbkc4RzdoQjhiWnRjTGJrc1RUWnBpLWtBa3A1bXJ2V0Fh?oc=5",
+      "wp_url": "https://www.habermat.com/aksuda-ihtiyac-sahiplerine-evde-saglik-ve-gida-destegi/",
+      "ig_id": "published",
+      "published_at": "2026-10-19T16:14:36.365442+03:00"
     }
   ],
   "used_image_urls": [
-    "https://foto.sondakika.com/haber/2024/07/02/halk-kart-tan-yaklasik-9-bin-aile-faydalaniyo-17479183_amp.jpg",
-    "https://visitizmiryonetim.izmir.bel.tr/YuklenenDosyalar/Blog/1024/16052022_023557642_4_4_kemeralt¦-_.jpg",
+    "https://foto.sondakika.com/haber/2024/01/19/sisli-arsuz-psikososyal-destek-merkezi-torenl-16758046_amp.jpg",
     "https://www.bursahakimiyet.com.tr/cdn/Xv_hNYtweH5V44lOkUR2ge8ALzw=/1200x630/webp/2026/10/08/bursa-da-ihtiyac-sahiplerine-13-farkli-destek-basvuru-sartlari-aciklandi-1791450603-716_large.webp",
     "https://sesgazetesicomtr.teimg.com/crop/1280x720/sesgazetesi-com-tr/uploads/2026/10/nnn-19.png",
-    "https://cdn.iha.com.tr/Contents/images/2026/03/06/20260305aw655393-0.jpg",
+    "https://cdn.iha.com.tr/Contents/images/2026/09/15/20260915aw788679-0.jpg",
+    "https://foto.sondakika.com/haber/2024/07/02/halk-kart-tan-yaklasik-9-bin-aile-faydalaniyo-17479183_amp.jpg",
+    "https://visitizmiryonetim.izmir.bel.tr/YuklenenDosyalar/Blog/1024/16052022_023557642_4_4_kemeralt¦-_.jpg",
     "https://img.yeniankara.com.tr/rcman/Cw1280h720q95gc/storage/files/images/2026/10/12/asker-5tz4.jpg",
-    "https://foto.sondakika.com/haber/2024/01/19/sisli-arsuz-psikososyal-destek-merkezi-torenl-16758046_amp.jpg"
+    "https://cdn.iha.com.tr/Contents/images/2026/03/06/20260305aw655393-0.jpg"
   ],
   "used_image_hashes": [
     "1a5616a022c020262b7d07ac24fc913e",
-    "4ab4835d8516cd49a64a047ff078bff3",
-    "557b095f60930d4cc041c776bf7aa833",
-    "9c47836b2d6114047aaf907a5728fa6a",
-    "a46d258e6cb6156467a4af0937c33d0e",
     "b75a06c998fb9197f3bc8f6b438dcf73",
-    "0c7b7ea8d79ea171ac895cc5192552a1"
+    "557b095f60930d4cc041c776bf7aa833",
+    "a46d258e6cb6156467a4af0937c33d0e",
+    "0c7b7ea8d79ea171ac895cc5192552a1",
+    "9c47836b2d6114047aaf907a5728fa6a",
+    "c3e9b7e65197dfe8fd819a02846b0ae0",
+    "4ab4835d8516cd49a64a047ff078bff3"
   ]
 }
