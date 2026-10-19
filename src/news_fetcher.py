@@ -22,12 +22,11 @@ TR_TZ = timezone(timedelta(hours=3))
 HISTORY_FILE = Path(__file__).resolve().parent.parent / "data" / "published_history.json"
 
 REQUIRED_AID_KEYWORDS = (
-    "yardım", "destek", "ödeme", "başvuru", "emekli", "maaş", "ikramiye",
-    "burs", "kırtasiye", "öğrenci", "erzak", "gıda", "koli", "market",
-    "doğalgaz", "yakacak", "kömür", "fatura", "dar gelir",
-    "halk kart", "başkent kart", "sosyal kart", "destek kart", "süt",
-    "bebek", "çeyiz", "evlilik", "nakdi", "nakit", "pazar", "ekmek",
-    "sıcak yemek", "beslenme", "ulaşım", "kantin", "kira", "vatandaş", "aile",
+    "yardım", "destek", "desteği", "ödeme", "başvuru", "ikramiye",
+    "burs", "kırtasiye", "erzak", "koli", "sosyal market",
+    "doğalgaz", "yakacak", "dar gelir", "ihtiyaç", "ücretsiz",
+    "halk kart", "başkent kart", "sosyal kart", "destek kart",
+    "çeyiz", "nakdi", "nakit", "sıcak yemek", "dağıt", "ikram", "lokal",
 )
 
 FOREIGN_AND_OFFTOPIC_BLOCKLIST = (
@@ -42,6 +41,7 @@ FOREIGN_AND_OFFTOPIC_BLOCKLIST = (
     "milli takım", "sokak hayvan", "hayvansever", "farkındalık", "şenlik",
     "festival", "konser", "tiyatro", "turnuva", "asfalt", "ilaçlama",
     "ödül", "sardis", "yarışma", "tören", "ihale", "anma", "sergi",
+    "ele geçirildi", "uygunsuz", "kaçak", "operasyon", "baskın", "ceza", "bozuk", "el konuldu",
 )
 
 
