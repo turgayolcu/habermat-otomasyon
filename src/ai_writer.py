@@ -54,20 +54,77 @@ def _tr_upper(text: str) -> str:
     return text.replace("i", "İ").replace("ı", "I").upper()
 
 
-def _build_clean_tdk_reels_headline(raw_title: str) -> str:
+def _tr_lower(text: str) -> str:
+    """Türkçe karakter kurallarına (TDK) uygun küçük harfe çevirme (İ -> i, I -> ı)."""
+    return text.replace("İ", "i").replace("I", "ı").lower()
+
+
+def _tr_capitalize_word(w: str) -> str:
+    if not w:
+        return w
+    if w.upper() in {"ABB", "İBB", "TOKİ", "SYDV", "SED", "PTT", "KYK", "GSB", "TL"}:
+        return w.upper()
+    low = _tr_lower(w)
+    if low in {"ve", "ile", "için", "de", "da", "mi", "mı", "mu", "mü"}:
+        return low
+    return _tr_upper(low[0]) + low[1:]
+
+
+def _format_mandatory_seo_title(ai_title: str, raw_title: str, category: dict) -> str:
     """
-    Reels üst manşetini yapay zekaya uydurtmak yerine doğrudan gerçek haber başlığından
-    TDK yazım, imla ve kesme işareti kurallarına %100 sadık kalarak üretir.
+    Tüm haber başlıklarını zorunlu olarak şu formatta üretir:
+    '[İl / İlçe Belediyesi] [Yardım/Destek Adı] Başvuru Şartları ve Formu 2026'
+    Örnek: 'Mersin Yenişehir Belediyesi Halk Kart Başvuru Şartları ve Formu 2026'
     """
-    clean = re.sub(r"\s+", " ", raw_title.strip()).replace("’", "'").replace("‘", "'")
-    # Ünlem, soru işareti veya iki noktadan önceki ana cümleyi al
-    clauses = [c.strip() for c in re.split(r"(?<=[!?])|:", clean) if len(c.strip()) >= 12]
-    chosen = clauses[0] if clauses else clean
-    chosen = chosen.rstrip(":;,. ")
-    words = chosen.split()
-    if len(words) > 9:
-        chosen = " ".join(words[:8])
-    return _tr_upper(chosen)
+    MANDATORY_SUFFIX = "Başvuru Şartları ve Formu 2026"
+    candidate = _strip_html(ai_title or "").strip().strip('"\'“”«»')
+    if not candidate or len(candidate) < 12:
+        candidate = raw_title.strip()
+
+    # Sondaki mevcut 'Başvuru Şartları...' veya '2026' ifadelerini temizle ki mükerrer olmasın
+    candidate = re.sub(
+        r"\s*[-–—:|,]?\s*başvuru\s+şartları(\s+ve\s+(formu|detayları|ekranı))?(\s*202\d)?\s*$",
+        "",
+        candidate,
+        flags=re.IGNORECASE,
+    ).strip()
+    candidate = re.sub(r"\s*202\d\s*$", "", candidate).strip()
+
+    # Tırnakları ve gereksiz noktalama/çekimli haber fiillerini temizle
+    candidate = re.sub(r'[“”"«»!?]', "", candidate)
+    candidate = re.sub(
+        r"\s+(ağı(nı)?\s+genişletiyor|dayanışmayı\s+büyütüyor|devam\s+ediyor|sürdürüyor|yapıldı|başladı|açıklandı|veriyor|dağıtıyor|sunuyor|ulaştı|açtı)\s*$",
+        "",
+        candidate,
+        flags=re.IGNORECASE,
+    ).strip(" -–—,:;.")
+
+    # Kategori il adını kontrol et (Başlıkta il adı yoksa en başa ekle)
+    cat_name = category.get("name", "")
+    province = cat_name.split()[0].strip() if "Belediye" in cat_name else ""
+    if province and _tr_lower(province) not in _tr_lower(candidate):
+        if not (_tr_lower(province) == "istanbul" and "ibb" in _tr_lower(candidate)) and not (
+            _tr_lower(province) == "ankara" and "abb" in _tr_lower(candidate)
+        ):
+            candidate = f"{province} {candidate}"
+
+    words = [w for w in candidate.split() if w]
+    if len(words) > 7:
+        words = words[:7]
+    formatted_prefix = " ".join(_tr_capitalize_word(w) for w in words)
+    if formatted_prefix:
+        formatted_prefix = _tr_upper(formatted_prefix[0]) + formatted_prefix[1:]
+
+    return f"{formatted_prefix} {MANDATORY_SUFFIX}".strip()
+
+
+def _build_clean_tdk_reels_headline(seo_title: str) -> str:
+    """
+    Reels üst manşetini doğrudan 'Başvuru Şartları ve Formu 2026' içeren haber başlığından
+    TDK büyük harf kurallarına uygun olarak üretir.
+    """
+    clean = re.sub(r"\s+", " ", seo_title.strip()).replace("’", "'").replace("‘", "'")
+    return _tr_upper(clean)
 
 
 def _extract_tdk_news_sentences_for_reels(news_item: Dict[str, str], spot_text: str = "") -> List[str]:
@@ -369,7 +426,9 @@ KURALLAR:
 Lütfen yanıtını SADECE aşağıdaki `===BLOK===` sırasıyla ver:
 
 ===SEO_TITLE===
-(55-68 karakter arası, TDK yazım ve imla kurallarına %100 uygun, Google Keşfet tıklama oranı yüksek Türkçe başlık)
+(ZORUNLU FORMAT: "[İl ve Belediye Adı] [Verilen Yardım/Destek Adı] Başvuru Şartları ve Formu 2026".
+Örnek: "Mersin Yenişehir Belediyesi Halk Kart Başvuru Şartları ve Formu 2026" veya "İzmir Karabağlar Belediyesi Sosyal Market Başvuru Şartları ve Formu 2026".
+Başlıkta fiil ("veriyor", "başladı", "genişletiyor" vb.) kullanma; doğrudan Belediye Adı + Yardım Adı + "Başvuru Şartları ve Formu 2026" yaz.)
 
 ===META_DESC===
 (145-158 karakter arası, TDK yazım ve noktalama kurallarına uygun SEO meta açıklaması)
@@ -398,19 +457,15 @@ Başvuru ve Ödeme Kanalı | (e-Devlet / PTT / Banka IBAN)
 
     raw_p1 = _call_ai_text(prompt_p1, system_msg)
 
-    # SEO Başlık için her zaman kaynak haberin %100 TDK uyumlu gerçek Türkçe başlığını koru
     raw_clean_title = news_item["raw_title"].strip()
-    if len(raw_clean_title) <= 105:
-        seo_title = raw_clean_title
-    else:
-        title_parts = [p.strip() for p in re.split(r"(?<=[!?])\s+", raw_clean_title) if len(p.strip()) >= 25]
-        seo_title = title_parts[0] if title_parts else raw_clean_title[:100].rsplit(" ", 1)[0]
+    ai_seo_title = _extract_block(raw_p1, "SEO_TITLE").strip()
+    seo_title = _format_mandatory_seo_title(ai_seo_title, raw_clean_title, category)
 
     meta_desc = _strip_html(_extract_block(raw_p1, "META_DESC")).strip()
     spot_text = _strip_html(_extract_block(raw_p1, "SPOT")).strip()
 
-    # Reels Üst Manşeti: Yapay zekaya uydurtmak yerine doğrudan gerçek haber başlığından TDK uyumlu üret
-    reels_headline = _build_clean_tdk_reels_headline(raw_clean_title)
+    # Reels Üst Manşeti: 'Başvuru Şartları ve Formu 2026' içeren haber başlığıyla birebir uyumlu üret
+    reels_headline = _build_clean_tdk_reels_headline(seo_title)
 
     visual_queries_raw = _extract_block(raw_p1, "VISUAL_QUERIES").strip()
     tags_raw = _extract_block(raw_p1, "TAGS").strip()

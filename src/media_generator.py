@@ -143,7 +143,7 @@ def generate_wp_featured_image(
 
     font_logo = _get_font(34, bold=True)
     font_badge = _get_font(25, bold=True)
-    font_headline = _get_font(54, bold=True)
+    font_headline = _get_font(46, bold=True)
     font_sub = _get_font(25, bold=True)
 
     # Üst kırmızı şerit
@@ -162,8 +162,8 @@ def generate_wp_featured_image(
 
     # Fotoğrafın Üzerinde Manşet Yazısı (Alt yarıya hizalı)
     headline = tr_upper(package.get("seo_title", package.get("reels_headline", "")))
-    wrapped_lines = textwrap.wrap(headline, width=27)[:3]
-    line_h = 72
+    wrapped_lines = textwrap.wrap(headline, width=32)[:3]
+    line_h = 68
     total_h = len(wrapped_lines) * line_h
     y_cursor = height - 115 - total_h
 
@@ -228,7 +228,7 @@ def _render_reels_slide(
     font_logo = _get_font(40, bold=True)
     font_badge = _get_font(23, bold=True)
     font_cat = _get_font(34, bold=True)
-    font_headline = _get_font(44, bold=True)
+    font_headline = _get_font(38, bold=True)
     font_sub = _get_font(38, bold=True)
     font_cta_title = _get_font(44, bold=True)
     font_cta_box = _get_font(54, bold=True)
@@ -254,15 +254,15 @@ def _render_reels_slide(
         width=3,
     )
     headline = tr_upper(package.get("reels_headline", package.get("seo_title", "")))
-    h_lines = textwrap.wrap(headline, width=26)[:3]
-    y_h = 215 + max(0, (180 - len(h_lines) * 56) // 2)
-    for line in h_lines:
+    h_lines = textwrap.wrap(headline, width=30)[:3]
+    y_h = 215 + max(0, (180 - len(h_lines) * 54) // 2)
+    for idx, line in enumerate(h_lines):
         bbox = draw.textbbox((0, 0), line, font=font_headline)
         lw = bbox[2] - bbox[0]
         xh = (width - lw) // 2
         draw.text((xh + 3, y_h + 3), line, font=font_headline, fill=(0, 0, 0))
-        draw.text((xh, y_h), line, font=font_headline, fill=COLOR_GOLD if len(h_lines) == 1 else COLOR_WHITE)
-        y_h += 56
+        draw.text((xh, y_h), line, font=font_headline, fill=COLOR_GOLD if idx == len(h_lines) - 1 else COLOR_WHITE)
+        y_h += 54
 
     # 3. ORTA GERÇEK FOTOĞRAF VİTRİN ÇERÇEVESİ (Y: 435 - 1055)
     # Fotoğrafın etrafına şık kırmızı/altın yayın çerçevesi ve slayt göstergesi
