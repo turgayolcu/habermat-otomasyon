@@ -22,7 +22,7 @@ TR_TZ = timezone(timedelta(hours=3))
 HISTORY_FILE = Path(__file__).resolve().parent.parent / "data" / "published_history.json"
 
 REQUIRED_AID_KEYWORDS = (
-    "yardım", "destek", "desteği", "ödeme", "başvuru", "ikramiye",
+    "yardım", "destek", "desteği", "ödeme", "ikramiye",
     "burs", "kırtasiye", "erzak", "koli", "sosyal market",
     "doğalgaz", "yakacak", "dar gelir", "ihtiyaç", "ücretsiz",
     "halk kart", "başkent kart", "sosyal kart", "destek kart",
@@ -42,6 +42,7 @@ FOREIGN_AND_OFFTOPIC_BLOCKLIST = (
     "festival", "konser", "tiyatro", "turnuva", "asfalt", "ilaçlama",
     "ödül", "sardis", "yarışma", "tören", "ihale", "anma", "sergi",
     "ele geçirildi", "uygunsuz", "kaçak", "operasyon", "baskın", "ceza", "bozuk", "el konuldu",
+    "personel", "işçi alımı", "memur alımı", "istihdam",
 )
 
 
