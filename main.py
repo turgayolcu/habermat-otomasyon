@@ -200,17 +200,26 @@ def main() -> None:
 
     if not args.skip_ig:
         if tiktok_pub.is_configured():
-            print("[6B/6] TikTok hesabına video yükleniyor ve paylaşılıyor...")
-            tt_res = tiktok_pub.publish_tiktok(reels_mp4_path, package["instagram_caption"])
-            social_id = tt_res.get("status", "tiktok_ok")
-            print("       -> TikTok Videosu Yayınlandı!")
-        elif ig_pub.is_configured():
-            print("[6B/6] Instagram Reels videosu yayınlanıyor...")
-            ig_res = ig_pub.publish_reels(reels_mp4_path, package["instagram_caption"], wp_publisher=wp_pub)
-            social_id = ig_res.get("media_id", "")
-            print(f"       -> Instagram Reels Yayınlandı! Media ID: {social_id}")
-        else:
-            print("[UYARI] TikTok oturumu (python login_tiktok.py) veya Instagram şifresi henüz tanımlanmadı.")
+            try:
+                print("[6B/6] TikTok hesabına video yükleniyor ve paylaşılıyor...")
+                tt_res = tiktok_pub.publish_tiktok(reels_mp4_path, package["instagram_caption"])
+                social_id = tt_res.get("status", "tiktok_ok")
+                print("       -> TikTok Videosu Yayınlandı!")
+            except Exception as tt_exc:
+                print(f"[UYARI] TikTok paylaşım hatası: {tt_exc}")
+
+        if ig_pub.is_configured():
+            try:
+                print("[6C/6] Instagram hesabına Reels videosu yükleniyor ve paylaşılıyor...")
+                ig_res = ig_pub.publish_reels(reels_mp4_path, package["instagram_caption"], wp_publisher=wp_pub)
+                ig_media_id = ig_res.get("media_id", "ig_ok")
+                social_id = f"{social_id}+{ig_media_id}" if social_id else ig_media_id
+                print(f"       -> Instagram Reels Yayınlandı! ({ig_media_id})")
+            except Exception as ig_exc:
+                print(f"[UYARI] Instagram Reels paylaşım hatası: {ig_exc}")
+
+        if not tiktok_pub.is_configured() and not ig_pub.is_configured():
+            print("[UYARI] TikTok veya Instagram oturumu henüz tanımlanmadı.")
 
     # Geçmişe kaydet (Aynı haber tekrar yazılmasın ve kaynak linki saklansın)
     save_to_history(
