@@ -275,11 +275,7 @@ def _render_reels_slide(
     draw.rounded_rectangle([70, 455, 70 + cw, 505], radius=12, fill=COLOR_RED)
     draw.text((88, 467), f"► {cat_label}", font=font_pill, fill=COLOR_WHITE)
 
-    # Sağ üst slayt sayacı (Örn: GÖRSEL 1/4) + Nokta göstergeleri
-    for p_i in range(max(total_photos, 3)):
-        dot_x = 990 - (max(total_photos, 3) - 1 - p_i) * 28
-        dot_c = COLOR_GOLD if p_i == photo_index else (180, 180, 180)
-        draw.ellipse([dot_x - 8, 472, dot_x + 8, 488], fill=dot_c, outline=(0, 0, 0), width=2)
+    # Sağ üstteki çoklu slayt nokta göstergesi kaldırıldı (Her Reels yalnızca kendi haber kapak görselini kullanır)
 
     # Fotoğrafın alt kenarında ses ilerleme çubuğu
     bar_left, bar_right = 75, 1005
@@ -296,7 +292,9 @@ def _render_reels_slide(
         outline=COLOR_GOLD if is_cta_screen else COLOR_WHITE,
         width=4,
     )
-    sub_lines = textwrap.wrap(subtitle_text, width=32)[:4]
+    import re as _re
+    clean_sub_text = _re.sub(r"[\u2010\u2011\u2012\u2013\u2014\u2015\u2212]", "-", subtitle_text)
+    sub_lines = textwrap.wrap(clean_sub_text, width=32)[:4]
     total_sub_h = len(sub_lines) * 56
     y_sub = 1080 + (305 - total_sub_h) // 2
     for sline in sub_lines:
@@ -891,9 +889,9 @@ def generate_reels_video(
         is_cta = bool(seg.get("is_cta", False))
         word_events = segment_word_events[idx]
 
-        # Her segmentte farklı bir gerçek haber fotoğrafına geç (Slayt akışı: Fotoğraf 1 -> 2 -> 3 -> 4)
-        current_photo_idx = idx % total_photos if photos_list else 0
-        current_photo_path = photos_list[current_photo_idx] if photos_list else None
+        # Her Reels yalnızca kendi haber kapak görselini (photos_list[0]) baştan sona kullanır
+        current_photo_idx = 0
+        current_photo_path = photos_list[0] if photos_list else None
 
         synced_chunks = _build_synced_subtitle_chunks(
             subtitle_text=subtitle_full,
@@ -905,15 +903,14 @@ def generate_reels_video(
         for c_idx, (chunk_text, chunk_dur) in enumerate(synced_chunks):
             elapsed += chunk_dur
             progress_ratio = elapsed / max(total_duration, 1.0)
-            # Her altyazı adımında fotoğrafa hafif sinematik zoom hareketi uygula (1.00 -> 1.03 -> 1.06)
-            zoom_factor = 1.0 + (c_idx * 0.025)
+            zoom_factor = 1.0
 
             slide_img = _render_reels_slide(
                 package=package,
                 category=category,
                 photo_path=current_photo_path,
                 photo_index=current_photo_idx,
-                total_photos=total_photos,
+                total_photos=1,
                 zoom_factor=zoom_factor,
                 subtitle_text=chunk_text,
                 progress_ratio=progress_ratio,

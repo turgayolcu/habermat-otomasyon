@@ -346,6 +346,39 @@
       "wp_url": "https://www.habermat.com/cankaya-belediyesinin-emekli-lokalleri-acilis-icin-gun-sayiyor/",
       "ig_id": "published",
       "published_at": "2026-10-19T00:11:29.861287+03:00"
+    },
+    {
+      "fingerprint": "b0332aa1fcf34272",
+      "title": "Esenyurt Belediyesi ihtiyaç sahibi vatandaşların yanında",
+      "category_id": "istanbul_belediye",
+      "source_url": "https://www.iha.com.tr/istanbul-haberleri/esenyurt-belediyesi-ihtiyac-sahibi-vatandaslarin-yaninda-450633971",
+      "wp_url": "https://www.habermat.com/esenyurt-belediyesi-ihtiyac-sahibi-vatandaslarin-yaninda/",
+      "ig_id": "published",
+      "published_at": "2026-10-19T01:04:10.338352+03:00"
+    },
+    {
+      "fingerprint": "08c60d5620af5cb5",
+      "title": "Sincan'da çölyak hastalarına kapsamlı gıda ve nakdi yardım",
+      "category_id": "ankara_belediye",
+      "source_url": "https://news.google.com/rss/articles/CBMilwFBVV95cUxNZDZnS2xVUFBlNy0wcnpJRTRJakdmMlFlbi1hLU1CaFBzSUVqRWhCMnExRWJBWmYzNlAwMEk0VjJ5U3Z1QWFKODZVdTlmcV85YUYxOVA0Q0dwa2pCNE9jR3RrUXJZcUpCdGxiVi1TZXpTcExaZHBlQWd3MnJJNnhMaGhncXNJUjczbEZVb1JrQmhRUXh1RXI40gGcAUFVX3lxTE00aEtHWFdyNzFjVm5QZ2I5eHlTcjgxVUNFWDhOdGVBWVBMbEd5YnFVeHZ2WjlsT3ZoWlVZUlRYYkx4UFY3MTFpaThnSVhldF9qQjRPd01NVjFoZUx3eHhFTW1WTy1KeHpQZE5kdTFzWGxiNTl1TTgteHp2bk1jRi1ybkFvbVV5VkQycENEay05aG1lYXpQZTlDajhxUg?oc=5",
+      "wp_url": "https://www.habermat.com/sincanda-colyak-hastalarina-kapsamli-gida-ve-nakdi-yardim/",
+      "ig_id": "published",
+      "published_at": "2026-10-19T02:04:57.819534+03:00"
+    },
+    {
+      "fingerprint": "e9be0f8822cccf01",
+      "title": "Mersin Büyükşehir Belediyesi'nin Halk Kart uygulamasından 9 bin aile faydalanıyor",
+      "category_id": "mersin_belediye",
+      "source_url": "https://www.sondakika.com/ekonomi/haber-mersin-buyuksehir-belediyesi-nin-halk-kart-uygulamasindan-9-bin-aile-faydalaniyor-17479183/",
+      "wp_url": "https://www.habermat.com/mersin-buyuksehir-belediyesinin-halk-kart-uygulamasindan-9-bin-aile-faydala/",
+      "ig_id": "published",
+      "published_at": "2026-10-19T10:54:31.487930+03:00"
     }
+  ],
+  "used_image_urls": [
+    "https://foto.sondakika.com/haber/2024/07/02/halk-kart-tan-yaklasik-9-bin-aile-faydalaniyo-17479183_amp.jpg"
+  ],
+  "used_image_hashes": [
+    "557b095f60930d4cc041c776bf7aa833"
   ]
 }

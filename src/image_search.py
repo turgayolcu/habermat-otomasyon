@@ -3,8 +3,9 @@ Habermat.com - Türkiye İçi Konu ve Anahtar Kelime Odaklı Haber Görseli Moto
 - "Türk Parası" kuralı tamamen kaldırılmıştır.
 - Haberin başlığından ve konusundan anahtar kelimeleri çıkarır.
 - Yalnızca Türkiye sınırları içerisindeki (`setmkt=tr-TR&setlang=tr` ve `site:tr`) gerçek haber kaynaklarından
-  (`source_link` makalesi, Türkiye haber ajansları ve Türkiye siteleri) konuyla birebir örtüşen
-  en az 4 farklı gerçek haber fotoğrafı indirir.
+  konuyla birebir örtüşen benzersiz haber kapak fotoğrafını indirir.
+- Daha önce herhangi bir haberde/Reels'te kullanılmış görsel URL'lerini ve görüntü özetlerini (hash)
+  `data/published_history.json` üzerinden kontrol ederek ASLA aynı kapak görselini tekrar kullanmaz.
 """
 
 import hashlib
@@ -13,8 +14,6 @@ import io
 import json
 import os
 import re
-import shutil
-import subprocess
 import urllib.parse
 from pathlib import Path
 from typing import Dict, List, Optional, Set
@@ -32,6 +31,8 @@ HEADERS = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
     "Accept-Language": "tr-TR,tr;q=0.9",
 }
+
+HISTORY_FILE = Path(__file__).resolve().parent.parent / "data" / "published_history.json"
 
 # Yabancı stok siteleri, ABD/Avrupa teknoloji siteleri ve fotoğrafın üstüne dev manşet basan siteler engellenir
 BLOCKED_IMAGE_DOMAINS = (
@@ -70,6 +71,29 @@ BLOCKED_IMAGE_DOMAINS = (
     "takvim.com.tr",
     "ahaber.com.tr",
     "fotomac.com.tr",
+    "googleusercontent.com",
+    "gstatic.com",
+)
+
+# Görsel URL'sinde geçmemesi gereken alakasız/varsayılan/ödül kelimeleri
+BLOCKED_IMAGE_URL_KEYWORDS = (
+    ".svg",
+    ".gif",
+    "logo",
+    "icon",
+    "avatar",
+    "sprite",
+    "periodic",
+    "1x1",
+    "pixel",
+    "share-img",
+    "default",
+    "placeholder",
+    "sardis",
+    "odul",
+    "ödül",
+    "20261007aw804478",
+    "sincan-da-colyak-hastalarina",
 )
 
 # 10 Şehir Büyükşehir ve İlçe Belediyeleri için Türkiye içi konu anahtar kelime sorguları
@@ -123,10 +147,10 @@ CATEGORY_TOPIC_QUERIES: Dict[str, List[str]] = {
         "İstanbul belediye sosyal destek kartı",
     ],
     "ankara_belediye": [
-        "Ankara Büyükşehir Belediyesi Başkent Kart yardım",
         "Çankaya Keçiören Yenimahalle Belediyesi sosyal yardım",
         "Mamak Sincan Etimesgut Altındağ Belediyesi destek",
-        "Ankara belediye sosyal yardım paketi",
+        "Ankara Büyükşehir Belediyesi sosyal yardım kolisi",
+        "Ankara belediye sosyal destek yardımı",
     ],
     "antalya_belediye": [
         "Antalya Büyükşehir Belediyesi sosyal yardım",
@@ -137,14 +161,47 @@ CATEGORY_TOPIC_QUERIES: Dict[str, List[str]] = {
 }
 
 
+def _load_used_image_history() -> tuple[Set[str], Set[str]]:
+    """Daha önce kullanılmış görsel URL'lerini ve hash'lerini yükler."""
+    used_urls: Set[str] = set()
+    used_hashes: Set[str] = set()
+    if HISTORY_FILE.exists():
+        try:
+            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            for u in data.get("used_image_urls", []):
+                used_urls.add(str(u))
+            for h in data.get("used_image_hashes", []):
+                used_hashes.add(str(h))
+        except Exception:
+            pass
+    return used_urls, used_hashes
+
+
+def _save_used_image_history(used_urls: Set[str], used_hashes: Set[str]) -> None:
+    """Yeni kullanılan görsel URL ve hash'ini geçmiş dosyasına kaydeder."""
+    try:
+        data = {"items": []}
+        if HISTORY_FILE.exists():
+            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        data["used_image_urls"] = list(used_urls)[-400:]
+        data["used_image_hashes"] = list(used_hashes)[-400:]
+        HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+
 def _is_clean_url(url: str) -> bool:
-    """Yasaklı yabancı/stok siteleri ve ikon/logo uzantılarını reddeder."""
+    """Yasaklı yabancı/stok siteleri ve ikon/logo/ödül uzantılarını reddeder."""
     if not url or not url.startswith("http"):
         return False
     low = url.lower()
     if any(bad in low for bad in BLOCKED_IMAGE_DOMAINS):
         return False
-    if any(ext in low for ext in [".svg", ".gif", "logo", "icon", "avatar", "sprite", "periodic", "1x1", "pixel"]):
+    if any(ext in low for ext in BLOCKED_IMAGE_URL_KEYWORDS):
         return False
     return True
 
@@ -152,21 +209,24 @@ def _is_clean_url(url: str) -> bool:
 def _extract_topic_keyword_queries(news_title: str, category: dict) -> List[str]:
     """
     Haberin başlığından anahtar kelimeleri seçerek Türkiye haber kaynaklarında
-    aranacak 3-4 farklı konu sorgusu üretir.
+    aranacak konu sorgularını üretir.
     """
     cat_id = category.get("id", "devlet_yardimlari")
     cat_name = category.get("name", "")
     queries: List[str] = []
 
     if news_title:
-        # 1. Tam haber başlığı (kaynak adı temizlenmiş)
         clean_full = re.split(r"\s+[-|]\s+", news_title)[0].strip()
         if len(clean_full) > 10:
             queries.append(clean_full[:70])
 
-        # 2. Rakam ve noktalama işaretlerinden arındırılmış saf konu anahtar kelimeleri
         no_nums = re.sub(r"\b\d+[\d.,]*\b", " ", clean_full)
-        no_nums = re.sub(r"\b(TL|lira|bin|milyon|milyar|kaç|nasıl|nedir|ne zaman|kimler)\b", " ", no_nums, flags=re.IGNORECASE)
+        no_nums = re.sub(
+            r"\b(TL|lira|bin|milyon|milyar|kaç|nasıl|nedir|ne zaman|kimler|için|gün|sayıyor|belli|oldu)\b",
+            " ",
+            no_nums,
+            flags=re.IGNORECASE,
+        )
         no_nums = re.sub(r"[^\w\sğüşıöçĞÜŞİÖÇ]", " ", no_nums)
         words = [w for w in no_nums.split() if len(w) >= 3]
 
@@ -174,12 +234,15 @@ def _extract_topic_keyword_queries(news_title: str, category: dict) -> List[str]
             kw_short = " ".join(words[:4])
             if kw_short not in queries:
                 queries.append(kw_short)
+        if len(words) >= 3:
+            kw_belediye = " ".join(words[:3]) + " belediye yardım"
+            if kw_belediye not in queries:
+                queries.append(kw_belediye)
         if len(words) >= 4:
             kw_mid = " ".join(words[1:5])
             if kw_mid not in queries:
                 queries.append(kw_mid)
 
-    # 3. Kategoriye ait Türkiye içi konu sorguları
     for cq in CATEGORY_TOPIC_QUERIES.get(cat_id, []):
         if cq not in queries:
             queries.append(cq)
@@ -194,10 +257,11 @@ def _extract_images_from_turkish_article(article_url: str, max_imgs: int = 1) ->
     """
     Türkiye'deki bir haber makalesinin (`source_link` veya Bing News TR sonucu)
     yalnızca ana kapak fotoğrafını (`og:image` / `twitter:image`) çeker.
-    Yan sütundaki 'Önerilen Haberler' küçük resimlerini asla almaz.
     """
     found: List[str] = []
     if not article_url or not article_url.startswith("http"):
+        return found
+    if "news.google.com" in article_url.lower():
         return found
     if any(bad in article_url.lower() for bad in BLOCKED_IMAGE_DOMAINS):
         return found
@@ -240,10 +304,13 @@ def _search_turkish_news_images(query: str, max_results: int = 8) -> List[str]:
             return img_urls
         feed = feedparser.parse(resp.content)
         for entry in feed.entries[:8]:
+            title_low = (entry.get("title", "") or "").lower()
+            if any(b in title_low for b in ("sardis", "ödül", "odul", "yarışma", "tören")):
+                continue
             link = entry.get("link", "")
             qs = urllib.parse.parse_qs(urllib.parse.urlparse(link).query)
             real_article_url = qs.get("url", [link])[0]
-            article_imgs = _extract_images_from_turkish_article(real_article_url, max_imgs=2)
+            article_imgs = _extract_images_from_turkish_article(real_article_url, max_imgs=1)
             for u in article_imgs:
                 if u not in img_urls:
                     img_urls.append(u)
@@ -255,7 +322,7 @@ def _search_turkish_news_images(query: str, max_results: int = 8) -> List[str]:
     return img_urls
 
 
-def _search_turkish_web_images(query: str, max_results: int = 10) -> List[str]:
+def _search_turkish_web_images(query: str, max_results: int = 12) -> List[str]:
     """
     Yalnızca `.tr` uzantılı Türkiye sitelerinde (`site:tr`) doğrudan görsel araması yapar.
     """
@@ -289,11 +356,14 @@ def _search_turkish_web_images(query: str, max_results: int = 10) -> List[str]:
 def _download_valid_image(
     url: str,
     save_path: Path,
+    seen_urls: Set[str],
     seen_hashes: Set[str],
     min_width: int = 500,
     min_height: int = 320,
 ) -> Optional[Path]:
-    """Görseli indirir, boyutunu, gerçek fotoğraf dokusunu ve benzersizliğini doğrulayıp kaydeder."""
+    """Görseli indirir, boyutunu, gerçek fotoğraf dokusunu ve daha önce hiç kullanılmamış olduğunu doğrulayıp kaydeder."""
+    if not _is_clean_url(url) or url in seen_urls:
+        return None
     try:
         resp = requests.get(url, headers=HEADERS, timeout=8)
         if resp.status_code != 200 or len(resp.content) < 15000:
@@ -316,6 +386,7 @@ def _download_valid_image(
 
         save_path.parent.mkdir(parents=True, exist_ok=True)
         rgb.save(save_path, format="JPEG", quality=92)
+        seen_urls.add(url)
         seen_hashes.add(img_hash)
         return save_path
     except Exception:
@@ -327,58 +398,61 @@ def fetch_news_images(
     category: dict,
     ai_visual_queries: Optional[List[str]] = None,
     work_dir: Path = Path("work/photos"),
-    min_count: int = 4,
+    min_count: int = 1,
     source_link: str = "",
 ) -> List[Path]:
     """
     Haberin konusuna göre anahtar kelimeleri seçer ve YALNIZCA Türkiye'deki haber/kurum
     kaynaklarından (`source_link`, Bing News Türkiye `setmkt=tr-TR` ve `site:tr`)
-    konuyla doğrudan alakalı gerçek fotoğrafları indirir.
+    konuyla doğrudan alakalı, daha önce hiçbir haberde kullanılmamış benzersiz kapak fotoğrafını indirir.
+    Hem haber sitesi (habermat.com) hem de Reels videosu bu benzersiz kapak görselini kullanır.
     """
     work_dir.mkdir(parents=True, exist_ok=True)
     downloaded: List[Path] = []
-    seen_hashes: Set[str] = set()
+    seen_urls, seen_hashes = _load_used_image_history()
 
     # 1. ADIM: Haberin alındığı orijinal Türkiye haber kaynağındaki (`source_link`) gerçek fotoğrafı çek
     if source_link:
         src_imgs = _extract_images_from_turkish_article(source_link, max_imgs=2)
         for u in src_imgs:
             target_file = work_dir / f"real_photo_{len(downloaded):02d}.jpg"
-            saved = _download_valid_image(u, target_file, seen_hashes)
+            saved = _download_valid_image(u, target_file, seen_urls, seen_hashes)
             if saved:
-                print(f"      [ORİJİNAL HABER FOTOĞRAFI #{len(downloaded)+1}] -> {u[:72]}")
+                print(f"      [ORİJİNAL HABER FOTOĞRAFI] -> {u[:72]}")
                 downloaded.append(saved)
                 break
 
-    # 2. ADIM: Haberin konusuna göre çıkarılan anahtar kelimelerle Türkiye Haber Kaynaklarından (`setmkt=tr-TR`) fotoğraf çek
+    # 2. ADIM: Haberin konusuna göre çıkarılan anahtar kelimelerle önce Türkiye (.tr) görsellerinden ve Türkiye Haberlerinden ara
     keyword_queries = _extract_topic_keyword_queries(news_title, category)
     for kw_q in keyword_queries:
         if len(downloaded) >= min_count:
             break
+        # Önce doğrudan konuyla ilgili Türkiye (.tr) haber/kurum fotoğraflarına bak
+        tr_web_imgs = _search_turkish_web_images(kw_q, max_results=10)
+        for u in tr_web_imgs:
+            if len(downloaded) >= min_count:
+                break
+            target_file = work_dir / f"real_photo_{len(downloaded):02d}.jpg"
+            saved = _download_valid_image(u, target_file, seen_urls, seen_hashes)
+            if saved:
+                print(f"      [TÜRKİYE (.tr) KAPAK GÖRSELİ] Anahtar Kelime: '{kw_q[:45]}' -> {u[:68]}")
+                downloaded.append(saved)
+                break
+
+        if len(downloaded) >= min_count:
+            break
+
+        # Ardından Bing News Türkiye haber makalelerinin kapak fotoğraflarına bak
         tr_news_imgs = _search_turkish_news_images(kw_q, max_results=8)
         for u in tr_news_imgs:
             if len(downloaded) >= min_count:
                 break
             target_file = work_dir / f"real_photo_{len(downloaded):02d}.jpg"
-            saved = _download_valid_image(u, target_file, seen_hashes)
+            saved = _download_valid_image(u, target_file, seen_urls, seen_hashes)
             if saved:
-                print(f"      [TÜRKİYE HABER GÖRSELİ #{len(downloaded)+1}] Anahtar Kelime: '{kw_q[:40]}' -> {u[:68]}")
+                print(f"      [TÜRKİYE HABER KAPAK GÖRSELİ] Anahtar Kelime: '{kw_q[:45]}' -> {u[:68]}")
                 downloaded.append(saved)
-
-    # 3. ADIM: Hala eksik slayt varsa kategori konu sorgularıyla `.tr` uzantılı Türkiye sitelerinden (`site:tr`) tamamla
-    if len(downloaded) < min_count:
-        cat_queries = CATEGORY_TOPIC_QUERIES.get(category.get("id", "devlet_yardimlari"), [])
-        for kw_q in cat_queries:
-            if len(downloaded) >= min_count:
                 break
-            tr_web_imgs = _search_turkish_web_images(kw_q, max_results=10)
-            for u in tr_web_imgs:
-                if len(downloaded) >= min_count:
-                    break
-                target_file = work_dir / f"real_photo_{len(downloaded):02d}.jpg"
-                saved = _download_valid_image(u, target_file, seen_hashes)
-                if saved:
-                    print(f"      [TÜRKİYE (.tr) GÖRSELİ #{len(downloaded)+1}] Anahtar Kelime: '{kw_q[:40]}' -> {u[:68]}")
-                    downloaded.append(saved)
 
+    _save_used_image_history(seen_urls, seen_hashes)
     return downloaded
