@@ -733,6 +733,35 @@ async def _synthesize_full_script_single_stream(
             last_err = exc
         await asyncio.sleep(1.0 + attempt * 0.4)
 
+    # Yedek: GitHub Actions IP'si Microsoft Edge TTS tarafından geçici kısıtlanırsa Google TTS üzerinden kesintisiz ses üret
+    try:
+        import urllib.parse
+        import requests as _req
+        seg_mp3s: List[Path] = []
+        seg_durs: List[float] = []
+        for idx, clause in enumerate(cleaned_clauses):
+            q_enc = urllib.parse.quote(clause[:195])
+            g_url = f"https://translate.googleapis.com/translate_tts?ie=UTF-8&tl=tr&client=gtx&q={q_enc}"
+            r_tts = _req.get(g_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=15)
+            if r_tts.status_code == 200 and len(r_tts.content) > 500:
+                p_part = out_mp3.parent / f"gtts_part_{idx}.mp3"
+                p_part.write_bytes(r_tts.content)
+                seg_mp3s.append(p_part)
+                seg_durs.append(_get_audio_duration_ffprobe(p_part))
+        if len(seg_mp3s) == len(cleaned_clauses):
+            concat_list = out_mp3.parent / "gtts_concat.txt"
+            with open(concat_list, "w", encoding="utf-8") as cf:
+                for sp in seg_mp3s:
+                    cf.write(f"file '{str(sp.resolve()).replace(chr(92), '/')}'\n")
+            subprocess.run(
+                ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(concat_list), "-c", "copy", str(out_mp3)],
+                check=True,
+                capture_output=True,
+            )
+            return seg_durs, [[] for _ in segments]
+    except Exception:
+        pass
+
     raise RuntimeError(f"Erkek spiker (tr-TR-AhmetNeural) seslendirmesi oluşturulamadı: {last_err}")
 
 
