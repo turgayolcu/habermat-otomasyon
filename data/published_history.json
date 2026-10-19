@@ -391,16 +391,27 @@
       "wp_url": "https://www.habermat.com/efeler-belediyesinin-sosyal-destek-giyim-noktasi-2-haftada-80-haneye-ulasti/",
       "ig_id": "published",
       "published_at": "2026-10-19T12:05:07.489154+03:00"
+    },
+    {
+      "fingerprint": "29c9c79891c8f8a9",
+      "title": "Karacabey Belediyesi, İhtiyaç Sahiplerine Yönelik Sosyal Destek Hizmetleri Sağlıyor.",
+      "category_id": "bursa_belediye",
+      "source_url": "https://www.mersinhaber.com/haber-karacabey-belediyesi-ihtiyac-sahiplerine-yonelik-sosyal-destek-hizmetleri-sagliyor/801897",
+      "wp_url": "https://www.habermat.com/karacabey-belediyesi-ihtiyac-sahiplerine-yonelik-sosyal-destek-hizmetleri-s/",
+      "ig_id": "published",
+      "published_at": "2026-10-19T13:04:54.419332+03:00"
     }
   ],
   "used_image_urls": [
+    "https://visitizmiryonetim.izmir.bel.tr/YuklenenDosyalar/Blog/1024/16052022_023557642_4_4_kemeralt¦-_.jpg",
     "https://cdn.iha.com.tr/Contents/images/2026/03/06/20260305aw655393-0.jpg",
     "https://foto.sondakika.com/haber/2024/07/02/halk-kart-tan-yaklasik-9-bin-aile-faydalaniyo-17479183_amp.jpg",
-    "https://visitizmiryonetim.izmir.bel.tr/YuklenenDosyalar/Blog/1024/16052022_023557642_4_4_kemeralt¦-_.jpg"
+    "https://www.bursahakimiyet.com.tr/cdn/Xv_hNYtweH5V44lOkUR2ge8ALzw=/1200x630/webp/2026/10/08/bursa-da-ihtiyac-sahiplerine-13-farkli-destek-basvuru-sartlari-aciklandi-1791450603-716_large.webp"
   ],
   "used_image_hashes": [
-    "557b095f60930d4cc041c776bf7aa833",
+    "4ab4835d8516cd49a64a047ff078bff3",
+    "9c47836b2d6114047aaf907a5728fa6a",
     "0c7b7ea8d79ea171ac895cc5192552a1",
-    "4ab4835d8516cd49a64a047ff078bff3"
+    "557b095f60930d4cc041c776bf7aa833"
   ]
 }
