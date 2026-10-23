@@ -21,10 +21,10 @@ TR_TZ = timezone(timedelta(hours=3))
 
 # Sabit kapanış çağrısı (Her haberin ve TikTok/Reels videosunun sonunda zorunlu)
 MANDATORY_CTA_DISPLAY = (
-    "Başvuru şartları ve detayları için Google'a habermat.com yaz, çıkan ilk siteye tıklayın!"
+    "Başvuru şartları ve detayları için Google'a habermat.com yaz çıkan ilk siteye tıkla, başvuru yapamayanlar yorum yapsın, yardımcı olacağız!"
 )
 MANDATORY_CTA_SPOKEN = (
-    "Başvuru şartları ve detayları için Google'a habermat nokta com yaz, çıkan ilk siteye tıklayın!"
+    "Başvuru şartları ve detayları için Google'a habermat nokta com yaz çıkan ilk siteye tıkla, başvuru yapamayanlar yorum yapsın, yardımcı olacağız!"
 )
 
 
@@ -509,7 +509,7 @@ Sadece saf HTML (`<h2>`, `<h3>`, `<p>`, `<strong>`) döndür, tüm cümleleri ek
         'border-left:6px solid #D90429;border-radius:8px;margin-top:28px;margin-bottom:18px;">'
         '<p style="margin:0;font-size:16px;line-height:1.5;">'
         '📢 <strong>Önemli Hatırlatma:</strong> Başvuru şartları ve detayları için '
-        'Google\'a <strong>habermat.com</strong> yaz, çıkan ilk siteye tıklayın!'
+        'Google\'a <strong>habermat.com</strong> yaz çıkan ilk siteye tıkla, başvuru yapamayanlar yorum yapsın, yardımcı olacağız!'
         '</p></div>'
     )
     full_wp_html = spot_html + enriched_body_html + cta_box_html
@@ -558,7 +558,7 @@ Sadece saf HTML (`<h2>`, `<h3>`, `<p>`, `<strong>`) döndür, tüm cümleleri ek
     instagram_caption = (
         f"🚨 {reels_headline}\n\n"
         f"{ig_summary}\n\n"
-        f"👉 Başvuru şartları ve detayları için Google'a \"habermat.com\" yaz, çıkan ilk siteye tıklayın!\n\n"
+        f"👉 Başvuru şartları ve detayları için Google'a \"habermat.com\" yaz çıkan ilk siteye tıkla, başvuru yapamayanlar yorum yapsın, yardımcı olacağız!\n\n"
         f"🔔 Günlük sosyal yardım, emeklilik, TOKİ ve kredi haberlerini kaçırmamak için @habermat5 sayfasını takip edin!\n\n"
         f"{hashtags_str}"
     )

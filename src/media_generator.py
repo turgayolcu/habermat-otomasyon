@@ -337,9 +337,9 @@ def _render_reels_slide(
     draw.text((818, 1538), "ARA", font=font_cta_title, fill=COLOR_WHITE)
 
     draw.text(
-        (105, 1658),
-        "» Google'a yaz, çıkan İLK SİTEYE tıklayın!",
-        font=font_cat,
+        (115, 1658),
+        "» Başvuru yapamayanlar yorum yapsın, yardımcı olacağız!",
+        font=font_footer,
         fill=COLOR_GOLD if is_cta_screen else COLOR_WHITE,
     )
 
