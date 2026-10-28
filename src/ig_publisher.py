@@ -57,16 +57,11 @@ class InstagramReelsPublisher:
 
             if not force_fresh_login and SESSION_FILE.exists():
                 try:
-                    settings = json.loads(SESSION_FILE.read_text(encoding="utf-8"))
-                    cl.set_settings(settings)
-                    sessionid = settings.get("authorization_data", {}).get("sessionid", "")
-                    if sessionid:
-                        cl.login_by_sessionid(sessionid)
-                        logged_in = True
-                    elif self.ig_username and self.ig_password:
-                        cl.login(self.ig_username, self.ig_password)
-                        logged_in = True
-                except Exception:
+                    cl.load_settings(str(SESSION_FILE))
+                    cl.get_timeline_feed()
+                    logged_in = True
+                except Exception as sess_err:
+                    print(f"[BİLGİ] Kayıtlı Instagram oturumu doğrulanamadı, yenileniyor ({sess_err})...")
                     logged_in = False
 
             if not logged_in:

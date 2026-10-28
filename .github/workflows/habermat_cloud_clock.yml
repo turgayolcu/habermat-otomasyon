@@ -59,8 +59,9 @@ jobs:
           while (time.time() - start_ts) < max_run_seconds:
               now_tr = datetime.datetime.now(tr_tz)
               hour_key = now_tr.strftime("%Y-%m-%d-%H")
+              active_hour = (now_tr.hour == 0) or (7 <= now_tr.hour <= 23)
 
-              if now_tr.minute in (0, 1) and hour_key not in triggered_hours:
+              if active_hour and now_tr.minute in (0, 1) and hour_key not in triggered_hours:
                   print(f"[SAAT BAŞI] Türkiye saati {now_tr.strftime('%H:%M:%S')} -> habermat_hourly.yml başlatılıyor...", flush=True)
                   trigger_workflow("habermat_hourly.yml")
                   triggered_hours.add(hour_key)
