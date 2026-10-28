@@ -5,7 +5,7 @@ on:
     # Türkiye saati (UTC+3) ile sabah 07:00'den gece 24:00'e (00:00) kadar her saat çalışır.
     # GitHub Actions yoğunluk kaynaklı gecikmeleri önlemek için her saatin 1., 15. ve 30. dakikasında tetiklenir
     # (main.py içinde o saat yayınlandıysa mükerrer yayını otomatik atlayan koruma mevcuttur).
-    - cron: '1,15,30 4-21 * * *'
+    - cron: '1,15,30 * * * *'
 
   workflow_dispatch:
     inputs:

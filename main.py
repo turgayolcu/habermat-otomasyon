@@ -118,9 +118,6 @@ def main() -> None:
 
     forced_cat = (args.category or os.environ.get("FORCE_CATEGORY") or "").strip()
     if not forced_cat and not args.dry_run:
-        if 1 <= now_tr.hour < 7:
-            print("[BİLGİ] Gece 01:00 - 06:59 arası yayın dışı saat dilimi (Paylaşımlar 07:00 - 24:00 arası yapılır).")
-            return
         from src.news_fetcher import load_history
         hour_prefix = now_tr.strftime("%Y-%m-%dT%H:")
         hist_items = load_history().get("items", [])

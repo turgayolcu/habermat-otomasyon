@@ -305,5 +305,14 @@ class WordPressPublisher:
                 "featured_media_id": featured_media_id,
             }
         except Exception as rest_err:
-            print(f"[BİLGİ] REST API yerine doğrudan WordPress XML-RPC ile yayınlanıyor ({rest_err})...")
-            return self._publish_via_xmlrpc(package, category, featured_image_path)
+            import time
+            last_err: Optional[Exception] = None
+            for attempt in range(3):
+                try:
+                    print(f"[BİLGİ] REST API yerine doğrudan WordPress XML-RPC ile yayınlanıyor (Deneme {attempt+1}/3, {rest_err})...")
+                    return self._publish_via_xmlrpc(package, category, featured_image_path)
+                except Exception as xml_err:
+                    last_err = xml_err
+                    print(f"[UYARI] WordPress XML-RPC geçici hata ({attempt+1}/3): {xml_err}")
+                    time.sleep(8 * (attempt + 1))
+            raise RuntimeError(f"WordPress yayınlama 3 denemede başarısız oldu: {last_err}") from last_err
