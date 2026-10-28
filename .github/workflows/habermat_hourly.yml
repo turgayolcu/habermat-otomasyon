@@ -88,5 +88,5 @@ jobs:
           git config user.name "habermat-bot"
           git config user.email "bot@habermat.com"
           git add data/published_history.json
-          git diff --staged --quiet || (git commit -m "chore: saatlik haber gecmisi guncellendi" && git pull --rebase -X theirs && git push)
+          git diff --staged --quiet || (git commit -m "chore: saatlik haber gecmisi guncellendi" && git pull --rebase --autostash -X theirs && git push)
 
