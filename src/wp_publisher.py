@@ -34,6 +34,7 @@ class WordPressPublisher:
             }
         )
         self._rest_nonce: Optional[str] = None
+        self._job_schema_nonce: Optional[str] = None
         self._authenticated_cookie = False
 
     def is_configured(self) -> bool:
@@ -70,6 +71,9 @@ class WordPressPublisher:
                 if any("wordpress_logged_in" in c.name for c in self.session.cookies):
                     self._authenticated_cookie = True
                     admin_resp = self.session.get(f"{self.base_url}/wp-admin/post-new.php", timeout=20)
+                    jm = re.search(r'name="habermat_job_schema_nonce"\s+value="([^"]+)"', admin_resp.text)
+                    if jm:
+                        self._job_schema_nonce = jm.group(1)
                     m = re.search(r'wpApiSettings\s*=\s*\{[^}]*"nonce"\s*:\s*"([a-zA-Z0-9]+)"', admin_resp.text)
                     if m:
                         self._rest_nonce = m.group(1)
@@ -81,6 +85,127 @@ class WordPressPublisher:
         # 2. Basic Auth (Application Password veya Basic Auth eklentisi varsa)
         token = base64.b64encode(f"{self.username}:{self.password}".encode("utf-8")).decode("utf-8")
         return {"Authorization": f"Basic {token}"}
+
+    def _is_job_posting_article(self, package: Dict[str, Any], category: dict) -> bool:
+        """Haberin kamu işçi alımı, İŞKUR veya belediye personel ilanı olup olmadığını tespit eder."""
+        if package.get("is_job_posting") is True:
+            return True
+        if category.get("id") == "iskur_kamu":
+            return True
+        title_lower = (package.get("seo_title") or "").lower()
+        tags_lower = " ".join(package.get("tags") or []).lower()
+        haystack = f"{title_lower} {tags_lower}"
+        job_keywords = (
+            "personel alımı",
+            "personel ilanı",
+            "işçi alımı",
+            "memur alımı",
+            "işkur",
+            "iş ilanı",
+            "zabıta alımı",
+            "itfaiye eri alımı",
+            "şoför alımı",
+            "güvenlik görevlisi alımı",
+            "temizlik personeli",
+            "typ ",
+            "iüp ",
+            "işgücü uyum",
+            "sözleşmeli personel",
+            "kpss",
+            "personel istihdamı",
+        )
+        return any(kw in haystack for kw in job_keywords)
+
+    def _extract_job_metadata(self, package: Dict[str, Any], category: dict) -> Dict[str, str]:
+        """Google İş İlanları Kutusu (JobPosting Schema) için kurum, şehir, çalışma şekli ve son başvuru tarihini çıkarır."""
+        from datetime import datetime, timedelta, timezone
+
+        tr_tz = timezone(timedelta(hours=3))
+        now_tr = datetime.now(tr_tz)
+        valid_thru = package.get("job_valid_thru") or (now_tr + timedelta(days=30)).strftime("%Y-%m-%d")
+
+        title = package.get("seo_title") or ""
+        title_lower = title.lower()
+
+        cities = [
+            "Adana", "Ankara", "Antalya", "Aydın", "Balıkesir", "Bursa", "Denizli", "Diyarbakır",
+            "Erzurum", "Eskişehir", "Gaziantep", "Hatay", "İstanbul", "İzmir", "Kahramanmaraş",
+            "Kayseri", "Kocaeli", "Konya", "Malatya", "Manisa", "Mardin", "Mersin", "Muğla",
+            "Ordu", "Sakarya", "Samsun", "Şanlıurfa", "Tekirdağ", "Trabzon", "Van",
+        ]
+        detected_city = package.get("job_city") or ""
+        if not detected_city:
+            for c in cities:
+                if c.lower() in title_lower or c.lower() in (category.get("name") or "").lower():
+                    detected_city = c
+                    break
+        if not detected_city:
+            detected_city = "Türkiye Geneli"
+
+        org_name = package.get("job_org") or ""
+        if not org_name:
+            m = re.match(r"^(.+?Belediyesi)", title, flags=re.IGNORECASE)
+            if m:
+                org_name = f"{m.group(1).strip()} / İŞKUR"
+            elif detected_city != "Türkiye Geneli":
+                org_name = f"{detected_city} Büyükşehir Belediyesi / İŞKUR"
+            else:
+                org_name = "İŞKUR / Kamu Kurumu ve Belediyeler"
+
+        emp_type = package.get("job_type") or "FULL_TIME"
+        if any(k in title_lower for k in ("typ", "iüp", "işgücü uyum", "geçici", "mevsimlik")):
+            emp_type = "TEMPORARY"
+        elif "sözleşmeli" in title_lower:
+            emp_type = "CONTRACTOR"
+        elif "yarı zamanlı" in title_lower or "part time" in title_lower:
+            emp_type = "PART_TIME"
+
+        return {
+            "hm_job_enabled": "1",
+            "hm_job_org": org_name,
+            "hm_job_city": detected_city,
+            "hm_job_type": emp_type,
+            "hm_job_valid_thru": valid_thru,
+        }
+
+    def _maybe_populate_job_posting_box(self, post_id: Any, package: Dict[str, Any], category: dict) -> None:
+        """
+        Kamu işçi alımı veya belediye personel ilanı girildiğinde WordPress'teki
+        'Google İş İlanları Kutusu (JobPosting Schema)' alanlarını otomatik doldurur.
+        """
+        if not post_id or not self._is_job_posting_article(package, category):
+            return
+
+        try:
+            headers = self._ensure_session_or_auth()
+            if not self._job_schema_nonce:
+                edit_resp = self.session.get(
+                    f"{self.base_url}/wp-admin/post.php",
+                    params={"post": post_id, "action": "edit"},
+                    timeout=15,
+                )
+                jm = re.search(r'name="habermat_job_schema_nonce"\s+value="([^"]+)"', edit_resp.text)
+                if jm:
+                    self._job_schema_nonce = jm.group(1)
+
+            job_meta = self._extract_job_metadata(package, category)
+            form_payload = {
+                "habermat_job_schema_nonce": self._job_schema_nonce or "",
+                **job_meta,
+            }
+            resp = self.session.post(
+                f"{self.api_base}/posts/{post_id}",
+                data=form_payload,
+                headers=headers,
+                timeout=20,
+            )
+            if resp.status_code in (200, 201):
+                print(
+                    f"       -> [JobPosting Schema] Google İş İlanları Kutusu dolduruldu: "
+                    f"Kurum='{job_meta['hm_job_org']}', Şehir='{job_meta['hm_job_city']}', Son Tarih='{job_meta['hm_job_valid_thru']}'"
+                )
+        except Exception as exc:
+            print(f"[UYARI] Google İş İlanları Kutusu (JobPosting Schema) doldurma uyarısı: {exc}")
 
     def _publish_via_xmlrpc(
         self,
@@ -99,9 +224,13 @@ class WordPressPublisher:
         with open(featured_image_path, "rb") as f:
             img_bits = xmlrpc.client.Binary(f.read())
 
+        ext = featured_image_path.suffix.lower()
+        mime_type = "image/webp" if ext == ".webp" else "image/jpeg"
+        ext_name = ".webp" if ext == ".webp" else ".jpg"
+
         media_struct = {
-            "name": f"{package['slug']}.jpg",
-            "type": "image/jpeg",
+            "name": f"{package['slug']}{ext_name}",
+            "type": mime_type,
             "bits": img_bits,
             "overwrite": True,
         }
@@ -142,6 +271,7 @@ class WordPressPublisher:
             content_struct["post_thumbnail"] = int(attachment_id)
 
         post_id = server.wp.newPost(1, self.username, self.password, content_struct)
+        self._maybe_populate_job_posting_box(post_id, package, category)
         return {
             "post_id": post_id,
             "link": f"{self.base_url}/?p={post_id}",
@@ -208,7 +338,12 @@ class WordPressPublisher:
 
     def upload_media(self, file_path: Path, alt_text: str = "", title: str = "") -> Dict[str, Any]:
         ext = file_path.suffix.lower()
-        mime_type = "video/mp4" if ext == ".mp4" else "image/jpeg"
+        if ext == ".mp4":
+            mime_type = "video/mp4"
+        elif ext == ".webp":
+            mime_type = "image/webp"
+        else:
+            mime_type = "image/jpeg"
         filename = file_path.name
 
         with open(file_path, "rb") as f:
@@ -299,8 +434,10 @@ class WordPressPublisher:
             )
             resp.raise_for_status()
             post_data = resp.json()
+            post_id = post_data.get("id")
+            self._maybe_populate_job_posting_box(post_id, package, category)
             return {
-                "post_id": post_data.get("id"),
+                "post_id": post_id,
                 "link": post_data.get("link", f"{self.base_url}/{package['slug']}"),
                 "featured_media_id": featured_media_id,
             }

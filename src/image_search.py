@@ -70,9 +70,26 @@ BLOCKED_IMAGE_DOMAINS = (
     "sabirgazetesi",
     "takvim.com.tr",
     "ahaber.com.tr",
+    "tmgrup.com.tr",
     "fotomac.com.tr",
     "googleusercontent.com",
     "gstatic.com",
+    "pazarium.com.tr",
+    "okul.com.tr",
+    "kitapdiyari.com.tr",
+    "trendyol.com",
+    "hepsiburada.com",
+    "n11.com",
+    "ciceksepeti.com",
+    "sahibinden.com",
+    "emlakjet.com",
+    "hepsiemlak.com",
+    "cimri.com",
+    "akakce.com",
+    "modanisa.com",
+    "lcwaikiki.com",
+    "defacto.com.tr",
+    "boyner.com.tr",
 )
 
 # Görsel URL'sinde geçmemesi gereken alakasız/varsayılan/ödül kelimeleri
@@ -379,6 +396,14 @@ def _download_valid_image(
         if (sum(stat.stddev) / 3.0) < 22.0:
             return None
 
+        # Keşfet Kuralı #1: Alt veya üst kısmında düz renkli afiş/yazı şeridi (banner) bulunan poster görselleri ele
+        top_band = rgb.crop((0, 0, w, max(1, int(h * 0.12)))).resize((60, 12))
+        bot_band = rgb.crop((0, int(h * 0.86), w, h)).resize((60, 12))
+        top_std = sum(ImageStat.Stat(top_band).stddev) / 3.0
+        bot_std = sum(ImageStat.Stat(bot_band).stddev) / 3.0
+        if top_std < 8.0 or bot_std < 8.0:
+            return None
+
         thumb = img.convert("L").resize((16, 16))
         img_hash = hashlib.md5(thumb.tobytes()).hexdigest()
         if img_hash in seen_hashes:
@@ -422,12 +447,27 @@ def fetch_news_images(
                 downloaded.append(saved)
                 break
 
-    # 2. ADIM: Haberin konusuna göre çıkarılan anahtar kelimelerle önce Türkiye (.tr) görsellerinden ve Türkiye Haberlerinden ara
+    # 2. ADIM: Haberin konusuna göre çıkarılan anahtar kelimelerle ÖNCE gerçek Türkiye Haber makalelerinin kapak fotoğraflarına bak
     keyword_queries = _extract_topic_keyword_queries(news_title, category)
     for kw_q in keyword_queries:
         if len(downloaded) >= min_count:
             break
-        # Önce doğrudan konuyla ilgili Türkiye (.tr) haber/kurum fotoğraflarına bak
+        # Önce Bing News Türkiye haber makalelerinin gerçek haber fotoğraflarına bak
+        tr_news_imgs = _search_turkish_news_images(kw_q, max_results=10)
+        for u in tr_news_imgs:
+            if len(downloaded) >= min_count:
+                break
+            target_file = work_dir / f"real_photo_{len(downloaded):02d}.jpg"
+            saved = _download_valid_image(u, target_file, seen_urls, seen_hashes)
+            if saved:
+                print(f"      [TÜRKİYE HABER KAPAK GÖRSELİ] Anahtar Kelime: '{kw_q[:45]}' -> {u[:68]}")
+                downloaded.append(saved)
+                break
+
+        if len(downloaded) >= min_count:
+            break
+
+        # Ardından Türkiye (.tr / .bel.tr / .gov.tr) kurum ve haber fotoğraflarına bak
         tr_web_imgs = _search_turkish_web_images(kw_q, max_results=10)
         for u in tr_web_imgs:
             if len(downloaded) >= min_count:
@@ -439,20 +479,25 @@ def fetch_news_images(
                 downloaded.append(saved)
                 break
 
-        if len(downloaded) >= min_count:
-            break
-
-        # Ardından Bing News Türkiye haber makalelerinin kapak fotoğraflarına bak
-        tr_news_imgs = _search_turkish_news_images(kw_q, max_results=8)
-        for u in tr_news_imgs:
+    # 3. ADIM: Eğer hala fotoğraf bulunamadıysa yazısız gerçek belediye binası / yardım kolisi / PTT / İŞKUR fotoğrafı çek
+    if len(downloaded) < min_count:
+        fallback_real_queries = [
+            f"{category.get('name', 'Büyükşehir Belediyesi')} hizmet binası",
+            "belediye gıda kolisi yardım dağıtımı",
+            "Sosyal Yardımlaşma vakfı yardım kolisi",
+            "PTT şubesi bina fotoğrafı",
+            "İŞKUR il müdürlüğü binası",
+        ]
+        for fb_q in fallback_real_queries:
             if len(downloaded) >= min_count:
                 break
-            target_file = work_dir / f"real_photo_{len(downloaded):02d}.jpg"
-            saved = _download_valid_image(u, target_file, seen_urls, seen_hashes)
-            if saved:
-                print(f"      [TÜRKİYE HABER KAPAK GÖRSELİ] Anahtar Kelime: '{kw_q[:45]}' -> {u[:68]}")
-                downloaded.append(saved)
-                break
+            for u in _search_turkish_web_images(fb_q, max_results=10):
+                target_file = work_dir / f"real_photo_{len(downloaded):02d}.jpg"
+                saved = _download_valid_image(u, target_file, seen_urls, seen_hashes)
+                if saved:
+                    print(f"      [GERÇEK KURUM FOTOĞRAFI] '{fb_q}' -> {u[:68]}")
+                    downloaded.append(saved)
+                    break
 
     _save_used_image_history(seen_urls, seen_hashes)
     return downloaded

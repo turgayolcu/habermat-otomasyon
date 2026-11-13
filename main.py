@@ -141,7 +141,7 @@ def main() -> None:
         source_link=news_item.get("source_link", ""),
     )
 
-    featured_img_path = OUTPUT_DIR / "featured_image.jpg"
+    featured_img_path = OUTPUT_DIR / "featured_image.webp"
     article_json_path = OUTPUT_DIR / "latest_package.json"
 
     with open(article_json_path, "w", encoding="utf-8") as f:

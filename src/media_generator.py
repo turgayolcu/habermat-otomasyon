@@ -111,81 +111,24 @@ def generate_wp_featured_image(
     real_photos: Optional[List[Path]] = None,
 ) -> Path:
     """
-    WordPress ve Google Keşfet için 1200x675 (16:9) boyutunda:
-    - Arka planda haberle alakalı gerçek Google/Haber fotoğrafı
-    - Fotoğrafın üzerinde sinematik karartma geçişi ve büyük MANŞET yazısı
-    - Sol üstte HABERMAT.COM logosu ve kategori rozeti
-    üretir.
+    Google Keşfet (Discover) Kuralı #1 Uyumlu Kapak Görseli (1200x675 WebP/JPEG):
+    - Kesinlikle üstüne başlık metni, çerçeve, karartma gradyanı veya HABERMAT.COM şeridi/logosu BASILMAZ.
+    - Tamamen yazısız, gerçek ve net haber fotoğrafı (belediye hizmet binası, yardım kolisi dağıtımı,
+      İŞKUR/PTT gerçek fotoğrafı) 1200x675 (16:9) boyutunda ve doğal netlikte kaydedilir.
     """
     width, height = 1200, 675
     cover_photo = real_photos[0] if real_photos else None
-    base_img = _fit_and_crop_photo(cover_photo, width, height, zoom=1.02).convert("RGBA")
+    img = _fit_and_crop_photo(cover_photo, width, height, zoom=1.0).convert("RGB")
 
-    # Fotoğrafın üzerine okunaklılık sağlayan sinematik gradyan katmanı (Üstte hafif, altta güçlü)
-    overlay = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-    odraw = ImageDraw.Draw(overlay)
-
-    for y in range(height):
-        if y < 140:
-            # Üst bar için karartma
-            alpha = int(185 * (1.0 - (y / 140.0) * 0.55))
-        elif y < 230:
-            # Orta alan (Fotoğrafın en net göründüğü kısım)
-            alpha = int(75 + (y - 140) * 0.4)
-        else:
-            # Alt manşet alanı için kademeli koyu lacivert/siyah karartma
-            ratio = (y - 230) / max(height - 230, 1)
-            alpha = int(115 + min(ratio * 135, 130))
-        odraw.line([(0, y), (width, y)], fill=(8, 13, 30, alpha))
-
-    img = Image.alpha_composite(base_img, overlay).convert("RGB")
-    draw = ImageDraw.Draw(img)
-
-    font_logo = _get_font(34, bold=True)
-    font_badge = _get_font(25, bold=True)
-    font_headline = _get_font(46, bold=True)
-    font_sub = _get_font(25, bold=True)
-
-    # Üst kırmızı şerit
-    draw.rectangle([0, 0, width, 12], fill=COLOR_RED)
-
-    # Sol üst: HABERMAT.COM kurumsal logo kutusu
-    draw.rounded_rectangle([55, 36, 385, 102], radius=12, fill=COLOR_RED)
-    draw.text((79, 50), "HABERMAT.COM", font=font_logo, fill=COLOR_WHITE)
-
-    # Kategori rozeti
-    badge_text = tr_upper(package.get("reels_badge", "SON DAKİKA"))
-    b_box = draw.textbbox((0, 0), badge_text, font=font_badge)
-    badge_w = (b_box[2] - b_box[0]) + 48
-    draw.rounded_rectangle([405, 40, 405 + badge_w, 98], radius=10, fill=(11, 19, 43), outline=COLOR_GOLD, width=3)
-    draw.text((429, 55), badge_text, font=font_badge, fill=COLOR_GOLD)
-
-    # Fotoğrafın Üzerinde Manşet Yazısı (Alt yarıya hizalı)
-    headline = tr_upper(package.get("seo_title", package.get("reels_headline", "")))
-    wrapped_lines = textwrap.wrap(headline, width=32)[:3]
-    line_h = 68
-    total_h = len(wrapped_lines) * line_h
-    y_cursor = height - 115 - total_h
-
-    # Manşetin soluna dikey kırmızı vurgu barı
-    draw.rounded_rectangle([55, y_cursor + 6, 71, y_cursor + total_h - 8], radius=6, fill=COLOR_RED)
-
-    for idx, line in enumerate(wrapped_lines):
-        # Güçlü siyah gölge + Beyaz/Altın manşet metni
-        draw.text((92, y_cursor + 4), line, font=font_headline, fill=(0, 0, 0))
-        draw.text((90, y_cursor + 2), line, font=font_headline, fill=(0, 0, 0))
-        line_color = COLOR_GOLD if idx == len(wrapped_lines) - 1 else COLOR_WHITE
-        draw.text((88, y_cursor), line, font=font_headline, fill=line_color)
-        y_cursor += line_h
-
-    # Alt bilgi bandı (Ticker bar)
-    draw.rectangle([0, height - 82, width, height], fill=COLOR_RED)
-    draw.rectangle([0, height - 86, width, height - 82], fill=COLOR_GOLD)
-    footer_text = "BAŞVURU ŞARTLARI VE DETAYLAR İÇİN: GOOGLE'A HABERMAT.COM YAZIN"
-    draw.text((55, height - 56), footer_text, font=font_sub, fill=COLOR_WHITE)
+    # Doğal haber fotoğrafı netliği (yazı, logo veya çerçeve olmadan)
+    img = ImageEnhance.Contrast(img).enhance(1.03)
+    img = ImageEnhance.Sharpness(img).enhance(1.08)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    img.save(output_path, format="JPEG", quality=85, optimize=True)
+    if output_path.suffix.lower() == ".webp":
+        img.save(output_path, format="WEBP", quality=88, method=6)
+    else:
+        img.save(output_path, format="JPEG", quality=88, optimize=True)
     return output_path
 
 

@@ -67,7 +67,7 @@ jobs:
         with:
           name: habermat-output-${{ github.run_number }}
           path: |
-            output/featured_image.jpg
+            output/featured_image.webp
             output/latest_package.json
           retention-days: 1
 
