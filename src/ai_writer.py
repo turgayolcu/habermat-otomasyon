@@ -504,14 +504,30 @@ Sadece saf HTML (`<h2>`, `<h3>`, `<p>`, `<strong>`) döndür, tüm cümleleri ek
         spot_text = f"{tdk_sentences[0]} {tdk_sentences[1]}"
 
     spot_html = f'<p class="habermat-spot"><strong>{spot_text}</strong></p>\n' if spot_text else ""
-    cta_box_html = (
-        '\n<div style="background:#0B132B;color:#FFFFFF;padding:18px 22px;'
-        'border-left:6px solid #D90429;border-radius:8px;margin-top:28px;margin-bottom:18px;">'
-        '<p style="margin:0;font-size:16px;line-height:1.5;">'
-        '📢 <strong>Önemli Hatırlatma:</strong> Başvuru şartları ve detayları için '
-        'Google\'a <strong>habermat.com</strong> yaz çıkan ilk siteye tıkla, başvuru yapamayanlar yorum yapsın, yardımcı olacağız!'
-        '</p></div>'
-    )
+    cat_id = category.get("id", "")
+    if cat_id.endswith("_belediye"):
+        city_slug = cat_id.replace("_belediye", "").replace("_", "-")
+        city_label = category.get("name", "").replace(" Belediye Yardımları", "").strip()
+        pillar_url = f"https://www.habermat.com/{city_slug}-buyuksehir-belediyesi-yardim-basvurusu/"
+        cta_box_html = (
+            '\n<div style="background:#F8FAFC;color:#0F172A;padding:18px 22px;'
+            'border:1px solid #CBD5E1;border-left:6px solid #EA580C;border-radius:8px;margin-top:28px;margin-bottom:18px;">'
+            '<p style="margin:0;font-size:15px;line-height:1.6;">'
+            f'📌 <strong>İlginizi Çekebilir ({city_label} Ana Rehber):</strong> İlinizdeki tüm sosyal kart, nakdi destek, erzak ve başvuru ekranları için '
+            f'<a href="{pillar_url}"><strong>{city_label} Büyükşehir Belediyesi Yardım Başvurusu ve Sosyal Kart Rehberi</strong></a> '
+            'sayfamızı inceleyebilir veya <a href="https://www.habermat.com/devlet-ve-belediye-yardimi-sorgulama-robotu/"><strong>2026 Yardım Hak Sahipliği Sorgulama Robotu</strong></a> ile uygunluğunuzu hesaplayabilirsiniz.'
+            '</p></div>'
+        )
+    else:
+        cta_box_html = (
+            '\n<div style="background:#F8FAFC;color:#0F172A;padding:18px 22px;'
+            'border:1px solid #CBD5E1;border-left:6px solid #EA580C;border-radius:8px;margin-top:28px;margin-bottom:18px;">'
+            '<p style="margin:0;font-size:15px;line-height:1.6;">'
+            '📌 <strong>Ücretsiz Hak Sahipliği Hesaplama:</strong> Hane geliriniz ve kişi sayınıza göre alabileceğiniz tüm Bakanlık ve Büyükşehir desteklerini '
+            '<a href="https://www.habermat.com/devlet-ve-belediye-yardimi-sorgulama-robotu/"><strong>2026 Devlet ve Belediye Yardımı Sorgulama Robotu</strong></a> '
+            'üzerinden hemen sorgulayabilirsiniz.'
+            '</p></div>'
+        )
     full_wp_html = spot_html + enriched_body_html + cta_box_html
     final_word_count = count_words_in_html(full_wp_html)
     p_count = len(BeautifulSoup(full_wp_html, "html.parser").find_all("p"))
